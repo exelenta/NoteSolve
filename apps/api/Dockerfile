@@ -7,6 +7,7 @@ WORKDIR /app
 
 COPY pyproject.toml alembic.ini ./
 COPY apps/api ./apps/api
+COPY prompts ./prompts
 
 RUN pip install --no-cache-dir . \
     && addgroup --system --gid 10001 notesolve \

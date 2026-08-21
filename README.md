@@ -164,3 +164,16 @@ docker compose --env-file .env.production down
 ```
 
 Do not add `-v` unless you intentionally want to delete the `notesolve-data` volume.
+
+## Day 10 server delivery
+
+The `Publish container images` GitHub Actions workflow validates the project and publishes
+multi-architecture API and web images for both standard AMD64 servers and Oracle Ampere ARM64
+servers. The production-only Compose definition, environment template, deploy, smoke-test,
+online-backup, and rollback helpers live under `deploy/server/`.
+
+The server deployment pulls images from GHCR instead of compiling on the VM. Persistent SQLite,
+uploads, backups, and Vault files use explicit host bind mounts under `/opt/notesolve` by default.
+See `deploy/server/README.md` for the complete runbook. Until application authentication and
+workspace isolation are implemented, keep the service bound to loopback and access it through a
+private network such as Tailscale.

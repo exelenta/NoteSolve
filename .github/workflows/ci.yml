@@ -33,3 +33,57 @@ jobs:
       - run: pnpm check
       - run: pnpm test
       - run: pnpm build
+
+  containers:
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    env:
+      NOTESOLVE_AI_PROVIDER: fake
+      NOTESOLVE_HOST_VAULT_DIR: ${{ github.workspace }}/.notesolve-vault
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start the production stack
+        run: |
+          mkdir -p .notesolve-vault
+          chmod 777 .notesolve-vault
+          docker compose up --build -d
+      - name: Run container smoke test
+        shell: bash
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/api/v1/health >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:8080/ >/dev/null
+          docker compose exec -T api test -f /app/prompts/worksheet/v1.md
+          docker compose exec -T api test -f /app/prompts/verification/v1.md
+          docker compose exec -T api test -f /app/prompts/note_edit/v1.md
+
+          upload=$(curl --fail --silent \
+            -F "file=@README.md;filename=smoke.png;type=image/png" \
+            http://127.0.0.1:8080/api/v1/documents)
+          job_id=$(jq -r .job_id <<<"$upload")
+          document_id=$(jq -r .document_id <<<"$upload")
+          curl --fail --silent -X POST \
+            "http://127.0.0.1:8080/api/v1/jobs/$job_id/analyze" >/dev/null
+
+          stage=""
+          for attempt in $(seq 1 20); do
+            stage=$(curl --fail --silent \
+              "http://127.0.0.1:8080/api/v1/jobs/$job_id" | jq -r .stage)
+            if [[ "$stage" == "completed" || "$stage" == "failed" ]]; then
+              break
+            fi
+            sleep 1
+          done
+          test "$stage" = "completed"
+          test "$(curl --fail --silent \
+            "http://127.0.0.1:8080/api/v1/documents/$document_id/result" | jq -r .provider)" = "fake"
+      - name: Show container logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v
