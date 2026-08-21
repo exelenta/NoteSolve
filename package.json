@@ -1,0 +1,12 @@
+{
+  "name": "notesolve",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @notesolve/web dev",
+    "check": "pnpm --filter @notesolve/web check",
+    "test": "pnpm --filter @notesolve/web test",
+    "build": "pnpm --filter @notesolve/web build"
+  },
+  "packageManager": "pnpm@11.19.0"
+}

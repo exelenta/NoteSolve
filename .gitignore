@@ -1,0 +1,17 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.uv-cache/
+*.egg-info/
+*.tsbuildinfo
+apps/api/tests/.tmp-*/
+node_modules/
+dist/
+coverage/
+.notesolve-data/
+*.db
+*.sqlite3
+apps/api/.coverage
