@@ -88,7 +88,7 @@ class OpenAIWorksheetAnalyzer:
             return {
                 "type": "input_file",
                 "filename": file.original_filename,
-                "file_data": encoded,
+                "file_data": f"data:application/pdf;base64,{encoded}",
             }
         raise ValueError(f"Unsupported worksheet content type: {file.content_type}")
 

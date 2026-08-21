@@ -74,3 +74,15 @@ async def test_openai_analyzer_sends_image_and_parses_structured_result() -> Non
     )
     assert result.document.subject == "math"
     assert result.problems[0].answer_markdown == "$x=1$"
+
+
+def test_openai_analyzer_encodes_pdf_as_data_url() -> None:
+    encoded = OpenAIWorksheetAnalyzer._file_input(
+        InputFile(
+            storage_key="notes.pdf",
+            content_type="application/pdf",
+            original_filename="notes.pdf",
+            content=b"%PDF-fake",
+        )
+    )
+    assert encoded["file_data"].startswith("data:application/pdf;base64,")

@@ -5,6 +5,22 @@ from typing import Any, cast
 import httpx
 
 
+class OpenAIRequestError(RuntimeError):
+    """A sanitized error returned by the OpenAI API."""
+
+
+def _error_message(response: httpx.Response) -> str:
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+    if isinstance(payload, dict):
+        error = payload.get("error")
+        if isinstance(error, dict) and isinstance(error.get("message"), str):
+            return str(error["message"])[:1000]
+    return f"OpenAI API request failed with status {response.status_code}"
+
+
 @dataclass(frozen=True)
 class ResponseUsage:
     input_tokens: int = 0
@@ -49,12 +65,13 @@ class OpenAIResponsesClient:
                     json=payload,
                 )
                 if response.status_code not in {408, 409, 429} and response.status_code < 500:
-                    response.raise_for_status()
+                    if response.is_error:
+                        raise OpenAIRequestError(_error_message(response))
                     body = cast(dict[str, Any], response.json())
                     self.last_usage = self._parse_usage(body)
                     return body
                 if attempt == self._max_retries:
-                    response.raise_for_status()
+                    raise OpenAIRequestError(_error_message(response))
                 retry_after = response.headers.get("retry-after")
                 delay = min(float(retry_after), 5.0) if retry_after else 0.25 * (2**attempt)
                 await asyncio.sleep(delay)
