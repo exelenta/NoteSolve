@@ -52,3 +52,31 @@ class WorksheetResultRow(Base):
     prompt_version: Mapped[str] = mapped_column(String(100))
     result_json: Mapped[dict[str, object]] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class VaultChangeSetRow(Base):
+    __tablename__ = "vault_change_sets"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    workspace_id: Mapped[UUID] = mapped_column(index=True)
+    document_id: Mapped[UUID] = mapped_column(ForeignKey("documents.id"), index=True)
+    status: Mapped[str] = mapped_column(String(50))
+    base_revision: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    operations_json: Mapped[list[dict[str, object]]] = mapped_column(JSON)
+    reason: Mapped[str] = mapped_column(String(500))
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class VaultRevisionRow(Base):
+    __tablename__ = "vault_revisions"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    change_set_id: Mapped[UUID] = mapped_column(
+        ForeignKey("vault_change_sets.id"), unique=True, index=True
+    )
+    path: Mapped[str] = mapped_column(String(500))
+    previous_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    applied_content_hash: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

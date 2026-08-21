@@ -33,6 +33,13 @@ class VerificationStatus(StrEnum):
     UNSUPPORTED = "unsupported"
 
 
+class VaultChangeSetStatus(StrEnum):
+    PENDING = "pending"
+    APPLIED = "applied"
+    CONFLICT = "conflict"
+    ROLLED_BACK = "rolled_back"
+
+
 class VerificationResult(BaseModel):
     status: VerificationStatus
     method: str | None = None

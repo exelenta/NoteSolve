@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 
@@ -95,3 +97,77 @@ def test_builds_approval_required_obsidian_preview(client: TestClient) -> None:
     assert "# math - algebra-sheet" in operation["content"]
     assert "## 문제 1" in operation["content"]
     assert "$x = 1$" in operation["content"]
+
+
+def _analyzed_document(client: TestClient, content: bytes) -> dict[str, str]:
+    uploaded = client.post(
+        "/api/v1/documents",
+        files={"file": ("algebra.png", content, "image/png")},
+    ).json()
+    client.post(f"/api/v1/jobs/{uploaded['job_id']}/analyze")
+    return uploaded
+
+
+def test_persists_applies_and_rolls_back_vault_change_set(client: TestClient) -> None:
+    uploaded = _analyzed_document(client, b"apply-and-rollback")
+    created = client.post(
+        f"/api/v1/documents/{uploaded['document_id']}/vault-change-sets"
+    )
+    assert created.status_code == 201
+    payload = created.json()
+    assert payload["status"] == "pending"
+    change_set_id = payload["change_set"]["id"]
+    relative_path = payload["change_set"]["operations"][0]["path"]
+    vault_file = Path(client.notesolve_vault_dir) / relative_path
+    assert not vault_file.exists()
+
+    applied = client.post(f"/api/v1/vault-change-sets/{change_set_id}/apply")
+    assert applied.status_code == 200
+    assert applied.json()["status"] == "applied"
+    assert vault_file.exists()
+    assert "## 문제 1" in vault_file.read_text(encoding="utf-8")
+
+    rolled_back = client.post(f"/api/v1/vault-change-sets/{change_set_id}/rollback")
+    assert rolled_back.status_code == 200
+    assert rolled_back.json()["status"] == "rolled_back"
+    assert not vault_file.exists()
+
+
+def test_vault_apply_detects_change_after_preview(client: TestClient) -> None:
+    uploaded = _analyzed_document(client, b"conflict")
+    created = client.post(
+        f"/api/v1/documents/{uploaded['document_id']}/vault-change-sets"
+    ).json()
+    change_set_id = created["change_set"]["id"]
+    relative_path = created["change_set"]["operations"][0]["path"]
+    vault_file = Path(client.notesolve_vault_dir) / relative_path
+    vault_file.parent.mkdir(parents=True, exist_ok=True)
+    vault_file.write_text("external edit", encoding="utf-8")
+
+    response = client.post(f"/api/v1/vault-change-sets/{change_set_id}/apply")
+    assert response.status_code == 409
+    persisted = client.get(f"/api/v1/vault-change-sets/{change_set_id}").json()
+    assert persisted["status"] == "conflict"
+    assert vault_file.read_text(encoding="utf-8") == "external edit"
+
+
+def test_vault_rollback_restores_previous_file(client: TestClient) -> None:
+    uploaded = _analyzed_document(client, b"restore-previous")
+    preview = client.get(
+        f"/api/v1/documents/{uploaded['document_id']}/vault-preview"
+    ).json()
+    relative_path = preview["change_set"]["operations"][0]["path"]
+    vault_file = Path(client.notesolve_vault_dir) / relative_path
+    vault_file.parent.mkdir(parents=True, exist_ok=True)
+    vault_file.write_text("previous note", encoding="utf-8")
+
+    created = client.post(
+        f"/api/v1/documents/{uploaded['document_id']}/vault-change-sets"
+    ).json()
+    change_set_id = created["change_set"]["id"]
+    client.post(f"/api/v1/vault-change-sets/{change_set_id}/apply")
+    assert vault_file.read_text(encoding="utf-8") != "previous note"
+
+    response = client.post(f"/api/v1/vault-change-sets/{change_set_id}/rollback")
+    assert response.status_code == 200
+    assert vault_file.read_text(encoding="utf-8") == "previous note"

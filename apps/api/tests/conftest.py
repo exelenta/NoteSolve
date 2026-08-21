@@ -41,5 +41,6 @@ def client(tmp_path: Path) -> TestClient:
     app.dependency_overrides[get_settings] = lambda: settings
     app.dependency_overrides[get_analysis_task] = lambda: analysis_task_override
     with TestClient(app) as test_client:
+        test_client.notesolve_vault_dir = settings.resolved_vault_dir  # type: ignore[attr-defined]
         yield test_client
     app.dependency_overrides.clear()

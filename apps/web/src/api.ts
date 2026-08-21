@@ -91,6 +91,13 @@ export interface VaultPreviewResponse {
   };
 }
 
+export type VaultChangeSetStatus = "pending" | "applied" | "conflict" | "rolled_back";
+
+export interface VaultChangeSetResponse extends VaultPreviewResponse {
+  status: VaultChangeSetStatus;
+  error_message: string | null;
+}
+
 export async function getHealth(): Promise<HealthResponse> {
   const response = await fetch(`${API_BASE_URL}/health`);
   if (!response.ok) throw new Error("API에 연결할 수 없습니다.");
@@ -130,4 +137,34 @@ export async function getVaultPreview(documentId: string): Promise<VaultPreviewR
   const response = await fetch(`${API_BASE_URL}/documents/${documentId}/vault-preview`);
   if (!response.ok) throw new Error("Obsidian 노트 미리보기를 만들지 못했습니다.");
   return response.json() as Promise<VaultPreviewResponse>;
+}
+
+export async function createVaultChangeSet(documentId: string): Promise<VaultChangeSetResponse> {
+  const response = await fetch(`${API_BASE_URL}/documents/${documentId}/vault-change-sets`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error("Vault 변경안을 저장하지 못했습니다.");
+  return response.json() as Promise<VaultChangeSetResponse>;
+}
+
+export async function applyVaultChangeSet(changeSetId: string): Promise<VaultChangeSetResponse> {
+  const response = await fetch(`${API_BASE_URL}/vault-change-sets/${changeSetId}/apply`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(payload?.detail ?? "Vault 반영에 실패했습니다.");
+  }
+  return response.json() as Promise<VaultChangeSetResponse>;
+}
+
+export async function rollbackVaultChangeSet(changeSetId: string): Promise<VaultChangeSetResponse> {
+  const response = await fetch(`${API_BASE_URL}/vault-change-sets/${changeSetId}/rollback`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(payload?.detail ?? "Vault 롤백에 실패했습니다.");
+  }
+  return response.json() as Promise<VaultChangeSetResponse>;
 }

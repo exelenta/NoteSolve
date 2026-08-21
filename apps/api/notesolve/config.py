@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     env: str = "development"
     data_dir: Path = Path(".notesolve-data")
+    vault_dir: Path | None = None
     max_upload_mb: int = 25
     cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
     ai_provider: str = "fake"
@@ -35,6 +36,10 @@ class Settings(BaseSettings):
     @property
     def max_upload_bytes(self) -> int:
         return self.max_upload_mb * 1024 * 1024
+
+    @property
+    def resolved_vault_dir(self) -> Path:
+        return self.vault_dir or self.data_dir / "vault"
 
 
 @lru_cache

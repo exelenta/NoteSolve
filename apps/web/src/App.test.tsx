@@ -55,9 +55,11 @@ describe("App", () => {
       if (url.endsWith("/documents/doc-1/result")) {
         return new Response(JSON.stringify(resultPayload), { status: 200 });
       }
-      if (url.endsWith("/documents/doc-1/vault-preview")) {
+      if (url.endsWith("/documents/doc-1/vault-change-sets")) {
         return new Response(JSON.stringify({
           document_id: "doc-1",
+          status: "pending",
+          error_message: null,
           change_set: {
             id: "changeset-1",
             base_revision: null,
@@ -67,6 +69,42 @@ describe("App", () => {
               operation: "create",
               path: "NoteSolve/수학/이차방정식/worksheet-doc-1.md",
               content: "# 수학 - 이차방정식\n\n## 문제 1\n\n$x^2=4$",
+            }],
+          },
+        }), { status: 200 });
+      }
+      if (url.endsWith("/vault-change-sets/changeset-1/apply")) {
+        return new Response(JSON.stringify({
+          document_id: "doc-1",
+          status: "applied",
+          error_message: null,
+          change_set: {
+            id: "changeset-1",
+            base_revision: null,
+            requires_approval: true,
+            reason: "Obsidian 노트 생성",
+            operations: [{
+              operation: "create",
+              path: "NoteSolve/수학/이차방정식/worksheet-doc-1.md",
+              content: "# 수학 - 이차방정식",
+            }],
+          },
+        }), { status: 200 });
+      }
+      if (url.endsWith("/vault-change-sets/changeset-1/rollback")) {
+        return new Response(JSON.stringify({
+          document_id: "doc-1",
+          status: "rolled_back",
+          error_message: null,
+          change_set: {
+            id: "changeset-1",
+            base_revision: null,
+            requires_approval: true,
+            reason: "Obsidian 노트 생성",
+            operations: [{
+              operation: "create",
+              path: "NoteSolve/수학/이차방정식/worksheet-doc-1.md",
+              content: "# 수학 - 이차방정식",
             }],
           },
         }), { status: 200 });
@@ -94,6 +132,10 @@ describe("App", () => {
     await userEvent.click(screen.getByRole("button", { name: "Obsidian 노트 미리보기" }));
     expect(await screen.findByText("승인 필요")).toBeInTheDocument();
     expect(screen.getByText("NoteSolve/수학/이차방정식/worksheet-doc-1.md")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "승인하고 Vault에 반영" }));
+    expect(await screen.findByText("Vault 반영됨")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "변경사항 롤백" }));
+    expect(await screen.findByText("롤백 완료")).toBeInTheDocument();
   });
 
   it("rejects an unsupported file", async () => {

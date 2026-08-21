@@ -6,10 +6,12 @@ import rehypeKatex from "rehype-katex";
 import remarkMath from "remark-math";
 import {
   analyzeJob,
+  applyVaultChangeSet,
+  createVaultChangeSet,
   getDocumentResult,
   getHealth,
   getJob,
-  getVaultPreview,
+  rollbackVaultChangeSet,
   uploadDocument,
 } from "./api";
 import type { ProblemResult } from "./api";
@@ -107,7 +109,9 @@ export function App() {
     mutationFn: analyzeJob,
     onSuccess: () => setAnalysisStarted(true),
   });
-  const vaultPreview = useMutation({ mutationFn: getVaultPreview });
+  const vaultChangeSet = useMutation({ mutationFn: createVaultChangeSet });
+  const vaultApply = useMutation({ mutationFn: applyVaultChangeSet });
+  const vaultRollback = useMutation({ mutationFn: rollbackVaultChangeSet });
   const job = useQuery({
     queryKey: ["job", upload.data?.job_id],
     queryFn: () => getJob(upload.data!.job_id),
@@ -136,7 +140,9 @@ export function App() {
   function selectFile(candidate: File | undefined) {
     upload.reset();
     analysis.reset();
-    vaultPreview.reset();
+    vaultChangeSet.reset();
+    vaultApply.reset();
+    vaultRollback.reset();
     setAnalysisStarted(false);
     if (!candidate) return;
     if (!ACCEPTED_TYPES.includes(candidate.type)) {
@@ -165,6 +171,7 @@ export function App() {
   }
 
   const progress = job.data?.progress ?? 0;
+  const currentVaultChangeSet = vaultRollback.data ?? vaultApply.data ?? vaultChangeSet.data;
 
   return (
     <main className="shell">
@@ -254,24 +261,50 @@ export function App() {
                 </dl>
                 <button
                   className="secondary-button"
-                  disabled={vaultPreview.isPending}
-                  onClick={() => vaultPreview.mutate(result.data.document_id)}
+                  disabled={vaultChangeSet.isPending}
+                  onClick={() => vaultChangeSet.mutate(result.data.document_id)}
                 >
-                  {vaultPreview.isPending ? "노트 생성 중…" : "Obsidian 노트 미리보기"}
+                  {vaultChangeSet.isPending ? "변경안 저장 중…" : "Obsidian 노트 미리보기"}
                 </button>
               </div>
-              {vaultPreview.isError && <p className="panel message error">{vaultPreview.error.message}</p>}
-              {vaultPreview.data && (
+              {vaultChangeSet.isError && <p className="panel message error">{vaultChangeSet.error.message}</p>}
+              {currentVaultChangeSet && (
                 <div className="panel vault-preview">
                   <div className="section-heading">
                     <div>
-                      <p className="section-kicker">VAULT CHANGESET · 승인 전</p>
+                      <p className="section-kicker">VAULT CHANGESET · {currentVaultChangeSet.status}</p>
                       <h2>생성될 Obsidian 노트</h2>
                     </div>
-                    <span className="approval-badge">승인 필요</span>
+                    <span className={`approval-badge ${currentVaultChangeSet.status}`}>
+                      {currentVaultChangeSet.status === "pending" && "승인 필요"}
+                      {currentVaultChangeSet.status === "applied" && "Vault 반영됨"}
+                      {currentVaultChangeSet.status === "rolled_back" && "롤백 완료"}
+                      {currentVaultChangeSet.status === "conflict" && "충돌 발생"}
+                    </span>
                   </div>
-                  <p className="vault-path">{vaultPreview.data.change_set.operations[0]?.path}</p>
-                  <pre>{vaultPreview.data.change_set.operations[0]?.content}</pre>
+                  <p className="vault-path">{currentVaultChangeSet.change_set.operations[0]?.path}</p>
+                  <pre>{currentVaultChangeSet.change_set.operations[0]?.content}</pre>
+                  <div className="vault-actions">
+                    {currentVaultChangeSet.status === "pending" && (
+                      <button
+                        disabled={vaultApply.isPending}
+                        onClick={() => vaultApply.mutate(currentVaultChangeSet.change_set.id)}
+                      >
+                        {vaultApply.isPending ? "Vault 반영 중…" : "승인하고 Vault에 반영"}
+                      </button>
+                    )}
+                    {currentVaultChangeSet.status === "applied" && (
+                      <button
+                        className="danger-button"
+                        disabled={vaultRollback.isPending}
+                        onClick={() => vaultRollback.mutate(currentVaultChangeSet.change_set.id)}
+                      >
+                        {vaultRollback.isPending ? "롤백 중…" : "변경사항 롤백"}
+                      </button>
+                    )}
+                  </div>
+                  {vaultApply.isError && <p className="message error">{vaultApply.error.message}</p>}
+                  {vaultRollback.isError && <p className="message error">{vaultRollback.error.message}</p>}
                 </div>
               )}
               {result.data.result.document.warnings.length > 0 && (

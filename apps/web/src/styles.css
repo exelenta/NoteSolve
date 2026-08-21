@@ -80,8 +80,13 @@ h2 { font-size: 26px; letter-spacing: -.025em; margin: 0; }
 .secondary-button { background: #eff6ff; color: #1d4ed8; }
 .vault-preview { margin-top: 18px; }
 .approval-badge { background: #fff7ed; border-radius: 999px; color: #9a3412; font-size: 12px; font-weight: 800; padding: 7px 10px; }
+.approval-badge.applied { background: #dcfce7; color: #166534; }
+.approval-badge.rolled_back { background: #f1f5f9; color: #475569; }
+.approval-badge.conflict { background: #fee2e2; color: #991b1b; }
 .vault-path { background: #eff6ff; border-radius: 9px; color: #1d4ed8; font-family: ui-monospace, monospace; font-size: 13px; margin: 18px 0 12px; overflow-wrap: anywhere; padding: 11px 13px; }
 .vault-preview pre { background: #0f172a; border-radius: 12px; color: #e2e8f0; font: 13px/1.65 ui-monospace, monospace; margin: 0; max-height: 520px; overflow: auto; padding: 18px; white-space: pre-wrap; }
+.vault-actions { display: flex; justify-content: flex-end; margin-top: 16px; }
+.danger-button { background: #fee2e2; color: #991b1b; }
 
 @media (max-width: 640px) {
   .shell { width: min(100% - 24px, 920px); padding: 36px 0; }

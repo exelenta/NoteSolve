@@ -12,21 +12,30 @@ from notesolve.api.schemas import (
     CreateDocumentResponse,
     HealthResponse,
     JobStatusResponse,
+    VaultChangeSetResponse,
     VaultPreviewResponse,
     WorksheetResultResponse,
 )
 from notesolve.application.markdown import build_vault_preview
 from notesolve.application.tasks import AnalysisTask, get_analysis_task
+from notesolve.application.vault import VaultChangeSetService
 from notesolve.config import Settings, get_settings
 from notesolve.domain.models import (
     LOCAL_WORKSPACE_ID,
     DocumentStatus,
     PipelineStage,
+    VaultChangeSetStatus,
     WorksheetResult,
 )
 from notesolve.infrastructure.db import get_session
 from notesolve.infrastructure.local_storage import LocalStorageProvider
-from notesolve.infrastructure.tables import DocumentRow, PipelineJobRow, WorksheetResultRow
+from notesolve.infrastructure.local_vault import LocalVaultRepository, VaultConflictError
+from notesolve.infrastructure.tables import (
+    DocumentRow,
+    PipelineJobRow,
+    VaultChangeSetRow,
+    WorksheetResultRow,
+)
 
 router = APIRouter()
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "application/pdf"}
@@ -222,3 +231,93 @@ def get_vault_preview(
             result=result,
         ),
     )
+
+
+def _vault_response(
+    row: VaultChangeSetRow,
+    service: VaultChangeSetService,
+) -> VaultChangeSetResponse:
+    return VaultChangeSetResponse(
+        document_id=row.document_id,
+        status=VaultChangeSetStatus(row.status),
+        error_message=row.error_message,
+        change_set=service.to_domain(row),
+    )
+
+
+@router.post(
+    "/documents/{document_id}/vault-change-sets",
+    response_model=VaultChangeSetResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_vault_change_set(
+    document_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> VaultChangeSetResponse:
+    service = VaultChangeSetService(
+        session=session,
+        vault=LocalVaultRepository(settings.resolved_vault_dir),
+    )
+    try:
+        row = service.create(document_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return _vault_response(row, service)
+
+
+@router.get("/vault-change-sets/{change_set_id}", response_model=VaultChangeSetResponse)
+def get_vault_change_set(
+    change_set_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> VaultChangeSetResponse:
+    service = VaultChangeSetService(
+        session=session,
+        vault=LocalVaultRepository(settings.resolved_vault_dir),
+    )
+    try:
+        row = service.get(change_set_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return _vault_response(row, service)
+
+
+@router.post("/vault-change-sets/{change_set_id}/apply", response_model=VaultChangeSetResponse)
+def apply_vault_change_set(
+    change_set_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> VaultChangeSetResponse:
+    service = VaultChangeSetService(
+        session=session,
+        vault=LocalVaultRepository(settings.resolved_vault_dir),
+    )
+    try:
+        row = service.apply(change_set_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (RuntimeError, VaultConflictError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return _vault_response(row, service)
+
+
+@router.post("/vault-change-sets/{change_set_id}/rollback", response_model=VaultChangeSetResponse)
+def rollback_vault_change_set(
+    change_set_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> VaultChangeSetResponse:
+    service = VaultChangeSetService(
+        session=session,
+        vault=LocalVaultRepository(settings.resolved_vault_dir),
+    )
+    try:
+        row = service.rollback(change_set_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (RuntimeError, VaultConflictError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return _vault_response(row, service)

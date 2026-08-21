@@ -18,6 +18,7 @@ The current foundation provides:
 - threshold-based independent verification for low-confidence or review-required problems
 - safe Markdown and LaTeX rendering in the review UI
 - approval-required Obsidian ChangeSet previews with subject/unit folder classification
+- persisted Vault ChangeSets with explicit apply, conflict detection, revision history, and rollback
 
 ## Prerequisites
 
@@ -81,4 +82,16 @@ structured result from `GET /api/v1/documents/{document_id}/result`.
 
 Generate a read-only Obsidian preview with
 `GET /api/v1/documents/{document_id}/vault-preview`. The response is a ChangeSet marked
-`requires_approval=true`; Day 5 does not write to the user's Vault.
+`requires_approval=true`.
+
+To persist and approve a Vault change:
+
+```text
+POST /api/v1/documents/{document_id}/vault-change-sets
+POST /api/v1/vault-change-sets/{change_set_id}/apply
+POST /api/v1/vault-change-sets/{change_set_id}/rollback
+```
+
+Set `NOTESOLVE_VAULT_DIR` to an existing Obsidian Vault path. If omitted, development uses
+`.notesolve-data/vault`. Apply and rollback both reject the operation if the target file changed
+since the expected revision.

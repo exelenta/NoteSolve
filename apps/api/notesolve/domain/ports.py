@@ -6,8 +6,6 @@ from notesolve.domain.models import (
     AnalyzeOptions,
     InputFile,
     ProblemResult,
-    VaultChangeSet,
-    VaultOperation,
     VerificationResult,
     WorksheetResult,
 )
@@ -46,10 +44,12 @@ class JobRunner(Protocol):
 
 
 class VaultRepository(Protocol):
-    async def preview_changes(
-        self, changes: Sequence[VaultOperation], reason: str
-    ) -> VaultChangeSet: ...
+    def read(self, path: str) -> str | None: ...
 
-    async def apply_changes(self, change_set_id: UUID) -> None: ...
+    def revision(self, path: str) -> str | None: ...
 
-    async def rollback(self, revision_id: UUID) -> None: ...
+    def write(self, path: str, content: str, expected_revision: str | None) -> str | None: ...
+
+    def restore(self, path: str, previous_content: str | None, expected_hash: str) -> None: ...
+
+    def content_hash(self, content: str) -> str: ...
