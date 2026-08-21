@@ -1,16 +1,99 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChangeEvent, DragEvent, useEffect, useState } from "react";
-import { getHealth, uploadDocument } from "./api";
+import { useEffect, useState } from "react";
+import type { ChangeEvent, DragEvent } from "react";
+import {
+  analyzeJob,
+  getDocumentResult,
+  getHealth,
+  getJob,
+  uploadDocument,
+} from "./api";
+import type { ProblemResult } from "./api";
 import "./styles.css";
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "application/pdf"];
+const STAGE_LABELS = {
+  ingested: "업로드 완료",
+  analyzing: "문제 인식 및 풀이 중",
+  validating: "응답 구조 검사 중",
+  verifying: "풀이 검산 중",
+  formatting: "학습 노트 정리 중",
+  vault_preview: "Vault 저장 준비 중",
+  completed: "분석 완료",
+  failed: "분석 실패",
+};
+
+function ProblemCard({ problem }: { problem: ProblemResult }) {
+  const needsAttention = problem.needs_review || problem.confidence < 0.9;
+  return (
+    <article className={`problem-card ${needsAttention ? "attention" : ""}`}>
+      <header className="problem-header">
+        <div>
+          <span className="problem-number">문제 {problem.number ?? "—"}</span>
+          <span className="problem-type">{problem.problem_type}</span>
+        </div>
+        <span className={`confidence ${needsAttention ? "low" : "high"}`}>
+          신뢰도 {Math.round(problem.confidence * 100)}%
+        </span>
+      </header>
+
+      {problem.warnings.length > 0 && (
+        <div className="warning-box">검토 필요: {problem.warnings.join(" · ")}</div>
+      )}
+      <section className="result-section">
+        <h3>문제</h3>
+        <div className="markdown-text">{problem.question_markdown}</div>
+      </section>
+      <section className="result-section">
+        <h3>풀이</h3>
+        <div className="markdown-text">{problem.solution_markdown}</div>
+      </section>
+      <section className="result-section answer-section">
+        <h3>정답</h3>
+        <div className="markdown-text">{problem.answer_markdown}</div>
+      </section>
+      <footer className="verification">
+        <span className={`verification-badge ${problem.verification.status}`}>
+          {problem.verification.status === "conflict" ? "검산 불일치" : "검산 완료"}
+        </span>
+        <span>{problem.verification.method ?? "AI 자체 검산"}</span>
+        <span>신뢰도 {Math.round(problem.verification.confidence * 100)}%</span>
+      </footer>
+      {problem.concepts.length > 0 && (
+        <div className="concepts">{problem.concepts.map((concept) => <span key={concept}>#{concept}</span>)}</div>
+      )}
+    </article>
+  );
+}
 
 export function App() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [analysisStarted, setAnalysisStarted] = useState(false);
   const health = useQuery({ queryKey: ["health"], queryFn: getHealth, retry: false });
-  const upload = useMutation({ mutationFn: uploadDocument });
+  const upload = useMutation({
+    mutationFn: uploadDocument,
+    onSuccess: () => setAnalysisStarted(false),
+  });
+  const analysis = useMutation({
+    mutationFn: analyzeJob,
+    onSuccess: () => setAnalysisStarted(true),
+  });
+  const job = useQuery({
+    queryKey: ["job", upload.data?.job_id],
+    queryFn: () => getJob(upload.data!.job_id),
+    enabled: analysisStarted && Boolean(upload.data),
+    refetchInterval: (query) => {
+      const status = query.state.data?.stage;
+      return status === "completed" || status === "failed" ? false : 1000;
+    },
+  });
+  const result = useQuery({
+    queryKey: ["result", upload.data?.document_id],
+    queryFn: () => getDocumentResult(upload.data!.document_id),
+    enabled: job.data?.stage === "completed" && Boolean(upload.data),
+  });
 
   useEffect(() => {
     if (!file || !file.type.startsWith("image/")) {
@@ -24,6 +107,8 @@ export function App() {
 
   function selectFile(candidate: File | undefined) {
     upload.reset();
+    analysis.reset();
+    setAnalysisStarted(false);
     if (!candidate) return;
     if (!ACCEPTED_TYPES.includes(candidate.type)) {
       setFile(null);
@@ -42,6 +127,15 @@ export function App() {
     event.preventDefault();
     selectFile(event.dataTransfer.files[0]);
   }
+
+  function startAnalysis() {
+    if (!upload.data) return;
+    analysis.reset();
+    setAnalysisStarted(false);
+    analysis.mutate(upload.data.job_id);
+  }
+
+  const progress = job.data?.progress ?? 0;
 
   return (
     <main className="shell">
@@ -65,7 +159,6 @@ export function App() {
         </label>
 
         {validationError && <p className="message error">{validationError}</p>}
-
         {file && (
           <div className="selection">
             {previewUrl ? <img src={previewUrl} alt="선택한 프린트 미리보기" /> : <div className="pdf">PDF</div>}
@@ -81,17 +174,66 @@ export function App() {
 
         {upload.isError && <p className="message error">{upload.error.message}</p>}
         {upload.isSuccess && (
-          <div className="result" role="status">
-            <strong>{upload.data.duplicate ? "이미 등록된 문서입니다." : "업로드가 완료되었습니다."}</strong>
-            <dl>
-              <div><dt>Document</dt><dd>{upload.data.document_id}</dd></div>
-              <div><dt>Job</dt><dd>{upload.data.job_id}</dd></div>
-              <div><dt>Status</dt><dd>{upload.data.status}</dd></div>
-            </dl>
+          <div className="upload-result" role="status">
+            <div>
+              <strong>{upload.data.duplicate ? "이미 등록된 문서입니다." : "업로드가 완료되었습니다."}</strong>
+              <p>AI가 문제 인식, 풀이와 검산을 한 번에 수행합니다.</p>
+            </div>
+            <button disabled={analysis.isPending || (analysisStarted && job.data?.stage !== "failed")} onClick={startAnalysis}>
+              {analysis.isPending ? "분석 요청 중…" : "분석 시작"}
+            </button>
           </div>
         )}
+        {analysis.isError && <p className="message error">{analysis.error.message}</p>}
       </section>
+
+      {analysisStarted && (
+        <section className="panel progress-panel" aria-live="polite">
+          <div className="section-heading">
+            <div>
+              <p className="section-kicker">AI ANALYSIS</p>
+              <h2>{job.data ? STAGE_LABELS[job.data.stage] : "분석 준비 중"}</h2>
+            </div>
+            <strong>{progress}%</strong>
+          </div>
+          <div className="progress-track"><div style={{ width: `${progress}%` }} /></div>
+          {job.isError && <p className="message error">{job.error.message}</p>}
+          {job.data?.stage === "failed" && (
+            <div className="failure-box">
+              <p><strong>분석을 완료하지 못했습니다.</strong><br />{job.data.error_message ?? "잠시 후 다시 시도해 주세요."}</p>
+              <button onClick={startAnalysis}>다시 분석</button>
+            </div>
+          )}
+        </section>
+      )}
+
+      {job.data?.stage === "completed" && (
+        <section className="results-area">
+          {result.isPending && <div className="panel loading-result">분석 결과를 정리하고 있습니다…</div>}
+          {result.isError && <p className="panel message error">{result.error.message}</p>}
+          {result.data && (
+            <>
+              <div className="panel results-summary">
+                <div>
+                  <p className="section-kicker">WORKSHEET RESULT</p>
+                  <h2>{result.data.result.document.subject}</h2>
+                  <p>{result.data.result.document.unit ?? "단원 미분류"} · 문제 {result.data.result.problems.length}개</p>
+                </div>
+                <dl>
+                  <div><dt>문서 신뢰도</dt><dd>{Math.round(result.data.result.document.confidence * 100)}%</dd></div>
+                  <div><dt>분석 모델</dt><dd>{result.data.model}</dd></div>
+                </dl>
+              </div>
+              {result.data.result.document.warnings.length > 0 && (
+                <div className="document-warnings">문서 검토 필요: {result.data.result.document.warnings.join(" · ")}</div>
+              )}
+              <div className="problem-list">
+                {result.data.result.problems.map((problem) => <ProblemCard key={problem.id} problem={problem} />)}
+              </div>
+            </>
+          )}
+        </section>
+      )}
     </main>
   );
 }
-

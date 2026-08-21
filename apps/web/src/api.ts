@@ -18,6 +18,25 @@ export interface AnalyzeJobResponse {
   status: string;
 }
 
+export type PipelineStage =
+  | "ingested"
+  | "analyzing"
+  | "validating"
+  | "verifying"
+  | "formatting"
+  | "vault_preview"
+  | "completed"
+  | "failed";
+
+export interface JobStatusResponse {
+  job_id: string;
+  document_id: string;
+  stage: PipelineStage;
+  progress: number;
+  error_code: string | null;
+  error_message: string | null;
+}
+
 export interface VerificationResult {
   status: "self_checked" | "verified" | "conflict" | "manual_review_required" | "unsupported";
   method: string | null;
@@ -78,6 +97,12 @@ export async function analyzeJob(jobId: string): Promise<AnalyzeJobResponse> {
   const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/analyze`, { method: "POST" });
   if (!response.ok) throw new Error("분석 작업을 시작하지 못했습니다.");
   return response.json() as Promise<AnalyzeJobResponse>;
+}
+
+export async function getJob(jobId: string): Promise<JobStatusResponse> {
+  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}`);
+  if (!response.ok) throw new Error("작업 상태를 불러오지 못했습니다.");
+  return response.json() as Promise<JobStatusResponse>;
 }
 
 export async function getDocumentResult(documentId: string): Promise<WorksheetResultResponse> {
