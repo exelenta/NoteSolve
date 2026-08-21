@@ -13,6 +13,11 @@ from notesolve.providers.openai_responses import OpenAIResponsesClient, Response
 def _strict_schema(node: object) -> object:
     if isinstance(node, dict):
         normalized = {key: _strict_schema(value) for key, value in node.items()}
+        # JSON Schema reference objects must not contain sibling keywords in
+        # OpenAI Structured Outputs. Pydantic can emit `$ref` plus `default`
+        # for enum fields with defaults, so retain the reference only.
+        if "$ref" in normalized:
+            return {"$ref": normalized["$ref"]}
         if normalized.get("type") == "object" or "properties" in normalized:
             normalized["additionalProperties"] = False
             properties = normalized.get("properties")

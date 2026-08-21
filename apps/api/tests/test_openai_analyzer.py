@@ -2,8 +2,8 @@ import json
 
 import httpx
 import pytest
-from notesolve.domain.models import AnalyzeOptions, InputFile
-from notesolve.providers.openai_analyzer import OpenAIWorksheetAnalyzer
+from notesolve.domain.models import AnalyzeOptions, InputFile, WorksheetResult
+from notesolve.providers.openai_analyzer import OpenAIWorksheetAnalyzer, _strict_schema
 
 
 @pytest.mark.asyncio
@@ -86,3 +86,12 @@ def test_openai_analyzer_encodes_pdf_as_data_url() -> None:
         )
     )
     assert encoded["file_data"].startswith("data:application/pdf;base64,")
+
+
+def test_strict_schema_removes_keywords_next_to_refs() -> None:
+    schema = _strict_schema(WorksheetResult.model_json_schema())
+    assert isinstance(schema, dict)
+    document = schema["properties"]["document"]
+    assert document == {"$ref": "#/$defs/DocumentAnalysis"}
+    kind = schema["$defs"]["DocumentAnalysis"]["properties"]["kind"]
+    assert kind == {"$ref": "#/$defs/DocumentKind"}
