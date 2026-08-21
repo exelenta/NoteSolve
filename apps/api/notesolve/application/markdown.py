@@ -30,13 +30,17 @@ def build_vault_preview(
     source_stem = _safe_segment(PurePosixPath(original_filename).stem, "학습지")
     filename = f"{source_stem}-{str(document_id)[:8]}.md"
     path = str(PurePosixPath("NoteSolve", subject, unit, filename))
-    title = f"{result.document.subject} - {result.document.unit or source_stem}"
+    title = (
+        result.document.title
+        or f"{result.document.subject} - {result.document.unit or source_stem}"
+    )
 
     lines = [
         "---",
         f"title: {_yaml_string(title)}",
         f"subject: {_yaml_string(result.document.subject)}",
         f"unit: {_yaml_string(result.document.unit or '')}",
+        f"document_kind: {_yaml_string(result.document.kind.value)}",
         f"source: {_yaml_string(original_filename)}",
         f"notesolve_document_id: {_yaml_string(str(document_id))}",
         "tags:",
@@ -46,47 +50,61 @@ def build_vault_preview(
         f"# {title}",
         "",
         "> [!info] NoteSolve 분석",
-        f"> 문서 신뢰도: {result.document.confidence:.0%} · 문제 {len(result.problems)}개",
+        (
+            f"> 문서 신뢰도: {result.document.confidence:.0%} · "
+            f"페이지 기반 블록 {len(result.blocks)}개"
+        ),
     ]
     if result.document.warnings:
         lines.extend(["", "> [!warning] 문서 검토 필요"])
         lines.extend(f"> - {warning}" for warning in result.document.warnings)
 
-    for index, problem in enumerate(result.problems, start=1):
-        number = problem.number or str(index)
-        lines.extend([
-            "",
-            "---",
-            "",
-            f"## 문제 {number}",
-            "",
-            problem.question_markdown,
-            "",
-            "### 풀이",
-            "",
-            problem.solution_markdown,
-            "",
-            "### 정답",
-            "",
-            problem.answer_markdown,
-            "",
-            "### 검산",
-            "",
-            f"- 상태: **{problem.verification.status.value}**",
-            f"- 방법: {problem.verification.method or '미기재'}",
-            f"- 신뢰도: {problem.verification.confidence:.0%}",
-        ])
-        if problem.verification.details_markdown:
-            lines.extend(["", problem.verification.details_markdown])
-        if problem.warnings:
-            lines.extend(["", "> [!warning] 검토 필요"])
-            lines.extend(f"> - {warning}" for warning in problem.warnings)
-        if problem.concepts:
-            concept_tags = " ".join(
-                f"#{_safe_segment(concept, '개념').replace(' ', '-')}"
-                for concept in problem.concepts
+    if result.blocks:
+        for block in result.blocks:
+            lines.extend(["", block.markdown])
+            if block.answer_markdown:
+                lines.extend(
+                    ["", "> [!success] 답", "> " + block.answer_markdown.replace("\n", "\n> ")]
+                )
+            if block.explanation_markdown:
+                lines.extend(
+                    [
+                        "",
+                        "> [!tip] 학습 도움",
+                        "> " + block.explanation_markdown.replace("\n", "\n> "),
+                    ]
+                )
+            if block.warnings:
+                lines.extend(["", "> [!warning] 판독 검토"])
+                lines.extend(f"> - {warning}" for warning in block.warnings)
+    else:
+        # Schema v1 compatibility for existing analyzed documents.
+        for index, problem in enumerate(result.problems, start=1):
+            number = problem.number or str(index)
+            lines.extend(
+                [
+                    "",
+                    "---",
+                    "",
+                    f"## 문제 {number}",
+                    "",
+                    problem.question_markdown,
+                    "",
+                    "### 풀이",
+                    "",
+                    problem.solution_markdown,
+                    "",
+                    "### 정답",
+                    "",
+                    problem.answer_markdown,
+                ]
             )
-            lines.extend(["", f"개념: {concept_tags}"])
+            if problem.concepts:
+                concept_tags = " ".join(
+                    f"#{_safe_segment(concept, '개념').replace(' ', '-')}"
+                    for concept in problem.concepts
+                )
+                lines.extend(["", f"개념: {concept_tags}"])
 
     content = "\n".join(lines).rstrip() + "\n"
     return VaultChangeSet(

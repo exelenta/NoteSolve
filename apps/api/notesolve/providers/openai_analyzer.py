@@ -26,7 +26,7 @@ def _strict_schema(node: object) -> object:
 
 class OpenAIWorksheetAnalyzer:
     provider_name = "openai"
-    prompt_version = "worksheet-v1"
+    prompt_version = "document-v2"
 
     def __init__(
         self,
@@ -65,8 +65,8 @@ class OpenAIWorksheetAnalyzer:
             "text": {
                 "format": {
                     "type": "json_schema",
-                    "name": "worksheet_result",
-                    "description": "A transcribed, solved, and self-checked worksheet.",
+                    "name": "study_document_result",
+                    "description": "A source-faithful, subject-aware Markdown study document.",
                     "strict": True,
                     "schema": _strict_schema(WorksheetResult.model_json_schema()),
                 }
@@ -106,10 +106,13 @@ class OpenAIWorksheetAnalyzer:
 
     @staticmethod
     def _prompt(options: AnalyzeOptions) -> str:
-        prompt_path = Path(__file__).resolve().parents[4] / "prompts" / "worksheet" / "v1.md"
+        prompt_path = Path(__file__).resolve().parents[4] / "prompts" / "document" / "v2.md"
         prompt = prompt_path.read_text(encoding="utf-8")
         context = {
             "language": options.language,
             "subject_hint": options.subject_hint or "unknown",
+            "help_level": options.help_level.value,
+            "output_style": options.output_style.value,
+            "custom_instruction": options.custom_instruction or "none",
         }
         return f"{prompt}\n\nRuntime context:\n{json.dumps(context, ensure_ascii=False)}"

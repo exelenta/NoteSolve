@@ -2,7 +2,16 @@ from collections.abc import AsyncIterator
 from typing import Annotated
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Body,
+    Depends,
+    File,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -32,6 +41,7 @@ from notesolve.config import Settings, get_settings
 from notesolve.domain.models import (
     LOCAL_WORKSPACE_ID,
     AgentEditJobStatus,
+    AnalyzeOptions,
     DocumentStatus,
     PipelineStage,
     VaultChangeSetStatus,
@@ -42,6 +52,7 @@ from notesolve.infrastructure.local_storage import LocalStorageProvider
 from notesolve.infrastructure.local_vault import LocalVaultRepository, VaultConflictError
 from notesolve.infrastructure.tables import (
     AgentEditJobRow,
+    DocumentPageRow,
     DocumentRow,
     PipelineJobRow,
     VaultChangeSetRow,
@@ -76,21 +87,33 @@ def health() -> HealthResponse:
     status_code=status.HTTP_201_CREATED,
 )
 async def create_document(
-    file: Annotated[UploadFile, File()],
+    files: Annotated[list[UploadFile], File(alias="file")],
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> CreateDocumentResponse:
-    if file.content_type not in ALLOWED_CONTENT_TYPES:
+    if not files or len(files) > 30:
+        raise HTTPException(status_code=400, detail="Upload between 1 and 30 pages")
+    if any(file.content_type not in ALLOWED_CONTENT_TYPES for file in files):
         raise HTTPException(status_code=415, detail="Only JPG, PNG, and PDF files are supported")
-    filename = file.filename or "upload.bin"
+    filename = files[0].filename or "upload.bin"
     document_id = uuid4()
     storage = LocalStorageProvider(settings.data_dir / "objects")
-    storage_key, content_hash, size_bytes = await storage.save(
-        workspace_id=LOCAL_WORKSPACE_ID,
-        document_id=document_id,
-        filename=filename,
-        chunks=limited_chunks(file, settings.max_upload_bytes),
-    )
+    saved_pages: list[tuple[UploadFile, str, str, int]] = []
+    for page_number, file in enumerate(files, start=1):
+        saved = await storage.save(
+            workspace_id=LOCAL_WORKSPACE_ID,
+            document_id=document_id,
+            filename=file.filename or f"page-{page_number}",
+            chunks=limited_chunks(file, settings.max_upload_bytes),
+            page_number=page_number,
+        )
+        saved_pages.append((file, *saved))
+    storage_key, content_hash, size_bytes = saved_pages[0][1:]
+    if len(saved_pages) > 1:
+        import hashlib
+
+        content_hash = hashlib.sha256("".join(page[2] for page in saved_pages).encode()).hexdigest()
+        size_bytes = sum(page[3] for page in saved_pages)
 
     existing = session.scalar(
         select(DocumentRow).where(
@@ -99,7 +122,8 @@ async def create_document(
         )
     )
     if existing is not None:
-        storage.delete(storage_key)
+        for page in saved_pages:
+            storage.delete(page[1])
         existing_job = session.scalar(
             select(PipelineJobRow)
             .where(PipelineJobRow.document_id == existing.id)
@@ -126,7 +150,7 @@ async def create_document(
         id=document_id,
         workspace_id=LOCAL_WORKSPACE_ID,
         original_filename=filename,
-        content_type=file.content_type,
+        content_type=files[0].content_type,
         storage_key=storage_key,
         content_hash=content_hash,
         size_bytes=size_bytes,
@@ -139,12 +163,26 @@ async def create_document(
         stage=PipelineStage.INGESTED,
         progress=0,
     )
-    session.add_all([document, job])
+    pages = [
+        DocumentPageRow(
+            id=uuid4(),
+            document_id=document_id,
+            page_number=index,
+            original_filename=file.filename or f"page-{index}",
+            content_type=file.content_type or "application/octet-stream",
+            storage_key=page[0],
+            content_hash=page[1],
+            size_bytes=page[2],
+        )
+        for index, (file, *page) in enumerate(saved_pages, start=1)
+    ]
+    session.add_all([document, job, *pages])
     try:
         session.commit()
     except IntegrityError:
         session.rollback()
-        storage.delete(storage_key)
+        for page in saved_pages:
+            storage.delete(page[1])
         raise HTTPException(status_code=409, detail="Document already exists") from None
     return CreateDocumentResponse(
         document_id=document.id,
@@ -179,6 +217,7 @@ def analyze_job(
     background_tasks: BackgroundTasks,
     session: Annotated[Session, Depends(get_session)],
     analysis_task: Annotated[AnalysisTask, Depends(get_analysis_task)],
+    options: Annotated[AnalyzeOptions | None, Body()] = None,
 ) -> AnalyzeJobResponse:
     job = session.get(PipelineJobRow, job_id)
     if job is None:
@@ -188,6 +227,8 @@ def analyze_job(
         job.error_message = None
         job.stage = PipelineStage.INGESTED
         session.commit()
+    job.analysis_options_json = (options or AnalyzeOptions()).model_dump(mode="json")
+    session.commit()
     background_tasks.add_task(analysis_task, job_id)
     return AnalyzeJobResponse(job_id=job_id, status="accepted")
 

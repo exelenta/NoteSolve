@@ -17,10 +17,12 @@ class LocalStorageProvider:
         document_id: UUID,
         filename: str,
         chunks: AsyncIterator[bytes],
+        page_number: int | None = None,
     ) -> tuple[str, str, int]:
         suffix = Path(filename).suffix.lower()
         safe_suffix = suffix if re.fullmatch(r"\.[a-z0-9]{1,8}", suffix) else ".bin"
-        storage_key = f"workspaces/{workspace_id}/documents/{document_id}/original{safe_suffix}"
+        stem = "original" if page_number is None else f"page-{page_number:04d}"
+        storage_key = f"workspaces/{workspace_id}/documents/{document_id}/{stem}{safe_suffix}"
         target = (self.root / storage_key).resolve()
         if self.root not in target.parents:
             raise ValueError("Unsafe storage path")

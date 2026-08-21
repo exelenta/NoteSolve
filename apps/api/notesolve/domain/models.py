@@ -33,6 +33,40 @@ class VerificationStatus(StrEnum):
     UNSUPPORTED = "unsupported"
 
 
+class DocumentKind(StrEnum):
+    WORKSHEET = "worksheet"
+    NOTES = "notes"
+    FILL_IN_THE_BLANK = "fill_in_the_blank"
+    REFERENCE = "reference"
+    MIXED = "mixed"
+
+
+class ContentBlockKind(StrEnum):
+    HEADING = "heading"
+    PARAGRAPH = "paragraph"
+    LIST = "list"
+    TABLE = "table"
+    DEFINITION = "definition"
+    EXAMPLE = "example"
+    EXERCISE = "exercise"
+    FILL_IN_THE_BLANK = "fill_in_the_blank"
+    QUOTE = "quote"
+    CALLOUT = "callout"
+
+
+class HelpLevel(StrEnum):
+    NONE = "none"
+    ANSWERS = "answers"
+    CONCISE = "concise"
+    DETAILED = "detailed"
+
+
+class OutputStyle(StrEnum):
+    SOURCE_FAITHFUL = "source_faithful"
+    STUDY_NOTES = "study_notes"
+    SUMMARY = "summary"
+
+
 class VaultChangeSetStatus(StrEnum):
     PENDING = "pending"
     APPLIED = "applied"
@@ -71,19 +105,37 @@ class ProblemResult(BaseModel):
 class DocumentAnalysis(BaseModel):
     subject: str
     unit: str | None = None
+    title: str | None = None
+    kind: DocumentKind = DocumentKind.WORKSHEET
     confidence: float = Field(ge=0, le=1)
     warnings: list[str] = Field(default_factory=list)
 
 
 class WorksheetResult(BaseModel):
-    schema_version: int = 1
+    schema_version: int = 2
     document: DocumentAnalysis
-    problems: list[ProblemResult]
+    blocks: list["ContentBlock"] = Field(default_factory=list)
+    problems: list[ProblemResult] = Field(default_factory=list)
+
+
+class ContentBlock(BaseModel):
+    id: str
+    kind: ContentBlockKind
+    source_page: int = Field(ge=1)
+    heading_level: int | None = Field(default=None, ge=1, le=6)
+    markdown: str
+    answer_markdown: str | None = None
+    explanation_markdown: str | None = None
+    confidence: float = Field(ge=0, le=1)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class AnalyzeOptions(BaseModel):
     subject_hint: str | None = None
     language: str = "ko"
+    help_level: HelpLevel = HelpLevel.CONCISE
+    output_style: OutputStyle = OutputStyle.SOURCE_FAITHFUL
+    custom_instruction: str | None = Field(default=None, max_length=2000)
 
 
 class InputFile(BaseModel):

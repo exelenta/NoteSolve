@@ -12,8 +12,9 @@ const resultPayload = {
   prompt_version: "v1",
   usage: { input_tokens: 120, output_tokens: 30, total_tokens: 150 },
   result: {
-    schema_version: 1,
-    document: { subject: "수학", unit: "이차방정식", confidence: 0.96, warnings: [] },
+    schema_version: 2,
+    document: { subject: "수학", unit: "이차방정식", title: null, kind: "worksheet", confidence: 0.96, warnings: [] },
+    blocks: [],
     problems: [{
       id: "problem-1",
       number: "1",
@@ -176,7 +177,7 @@ describe("App", () => {
 
   it("uploads, analyzes, and displays a worksheet result", async () => {
     renderApp();
-    const input = screen.getByLabelText(/프린트 사진 또는 PDF/) as HTMLInputElement;
+    const input = screen.getByLabelText(/여러 장의 프린트 또는 PDF/) as HTMLInputElement;
     await userEvent.upload(input, new File(["image"], "worksheet.png", { type: "image/png" }));
     await userEvent.click(screen.getByRole("button", { name: "NoteSolve에 업로드" }));
     expect(await screen.findByText("업로드가 완료되었습니다.")).toBeInTheDocument();
@@ -205,7 +206,7 @@ describe("App", () => {
 
   it("rejects an unsupported file", async () => {
     renderApp();
-    const input = screen.getByLabelText(/프린트 사진 또는 PDF/) as HTMLInputElement;
+    const input = screen.getByLabelText(/여러 장의 프린트 또는 PDF/) as HTMLInputElement;
     await userEvent.upload(input, new File(["text"], "notes.txt", { type: "text/plain" }), { applyAccept: false });
     expect(await screen.findByText(/JPG, PNG 또는 PDF/)).toBeInTheDocument();
   });

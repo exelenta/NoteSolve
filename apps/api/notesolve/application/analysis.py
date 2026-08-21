@@ -12,7 +12,12 @@ from notesolve.domain.models import (
     WorksheetResult,
 )
 from notesolve.domain.ports import StorageProvider, WorksheetAnalyzer, WorksheetVerifier
-from notesolve.infrastructure.tables import DocumentRow, PipelineJobRow, WorksheetResultRow
+from notesolve.infrastructure.tables import (
+    DocumentPageRow,
+    DocumentRow,
+    PipelineJobRow,
+    WorksheetResultRow,
+)
 from notesolve.providers.openai_responses import ResponseUsage, usage_of
 
 
@@ -54,16 +59,35 @@ class AnalysisService:
         document.status = DocumentStatus.PROCESSING
         self._session.commit()
         try:
-            content = await self._storage.read(document.storage_key)
-            input_files = [
-                InputFile(
-                    storage_key=document.storage_key,
-                    content_type=document.content_type,
-                    original_filename=document.original_filename,
-                    content=content,
+            pages = list(
+                self._session.scalars(
+                    select(DocumentPageRow)
+                    .where(DocumentPageRow.document_id == document.id)
+                    .order_by(DocumentPageRow.page_number)
                 )
-            ]
-            analysis_options = options or AnalyzeOptions()
+            )
+            if pages:
+                input_files = [
+                    InputFile(
+                        storage_key=page.storage_key,
+                        content_type=page.content_type,
+                        original_filename=page.original_filename,
+                        content=await self._storage.read(page.storage_key),
+                    )
+                    for page in pages
+                ]
+            else:
+                input_files = [
+                    InputFile(
+                        storage_key=document.storage_key,
+                        content_type=document.content_type,
+                        original_filename=document.original_filename,
+                        content=await self._storage.read(document.storage_key),
+                    )
+                ]
+            analysis_options = options or AnalyzeOptions.model_validate(
+                job.analysis_options_json or {}
+            )
             result = await self._analyzer.analyze(input_files, analysis_options)
             self._usage = usage_of(self._analyzer)
             job.stage = PipelineStage.VALIDATING

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { ChangeEvent, DragEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
@@ -17,7 +17,7 @@ import {
   requestAgentEdit,
   uploadDocument,
 } from "./api";
-import type { ProblemResult } from "./api";
+import type { AnalyzeOptions, ContentBlock, ProblemResult } from "./api";
 import "katex/dist/katex.min.css";
 import "./styles.css";
 
@@ -98,9 +98,21 @@ function ProblemCard({ problem }: { problem: ProblemResult }) {
   );
 }
 
+function DocumentBlock({ block }: { block: ContentBlock }) {
+  return <article className="document-block">
+    <div className="block-meta"><span>{block.kind.replaceAll("_", " ")}</span><span>p. {block.source_page}</span></div>
+    <MarkdownContent>{block.markdown}</MarkdownContent>
+    {block.answer_markdown && <div className="block-answer"><strong>답</strong><MarkdownContent>{block.answer_markdown}</MarkdownContent></div>}
+    {block.explanation_markdown && <div className="block-help"><strong>학습 도움</strong><MarkdownContent>{block.explanation_markdown}</MarkdownContent></div>}
+  </article>;
+}
+
 export function App() {
-  const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [subject, setSubject] = useState("");
+  const [helpLevel, setHelpLevel] = useState<AnalyzeOptions["help_level"]>("concise");
+  const [outputStyle, setOutputStyle] = useState<AnalyzeOptions["output_style"]>("source_faithful");
+  const [customInstruction, setCustomInstruction] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [analysisStarted, setAnalysisStarted] = useState(false);
   const [editInstruction, setEditInstruction] = useState("");
@@ -150,17 +162,7 @@ export function App() {
     enabled: job.data?.stage === "completed" && Boolean(upload.data),
   });
 
-  useEffect(() => {
-    if (!file || !file.type.startsWith("image/")) {
-      setPreviewUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
-
-  function selectFile(candidate: File | undefined) {
+  function selectFiles(candidates: File[]) {
     upload.reset();
     analysis.reset();
     vaultChangeSet.reset();
@@ -170,30 +172,33 @@ export function App() {
     proposalApply.reset();
     setEditInstruction("");
     setAnalysisStarted(false);
-    if (!candidate) return;
-    if (!ACCEPTED_TYPES.includes(candidate.type)) {
-      setFile(null);
+    if (!candidates.length) return;
+    if (candidates.length > 30 || candidates.some((candidate) => !ACCEPTED_TYPES.includes(candidate.type))) {
+      setFiles([]);
       setValidationError("JPG, PNG 또는 PDF 파일만 업로드할 수 있습니다.");
       return;
     }
     setValidationError(null);
-    setFile(candidate);
+    setFiles(candidates);
   }
 
   function handleFileInput(event: ChangeEvent<HTMLInputElement>) {
-    selectFile(event.target.files?.[0]);
+    selectFiles(Array.from(event.target.files ?? []));
   }
 
   function handleDrop(event: DragEvent<HTMLLabelElement>) {
     event.preventDefault();
-    selectFile(event.dataTransfer.files[0]);
+    selectFiles(Array.from(event.dataTransfer.files));
   }
 
   function startAnalysis() {
     if (!upload.data) return;
     analysis.reset();
     setAnalysisStarted(false);
-    analysis.mutate(upload.data.job_id);
+    analysis.mutate({ jobId: upload.data.job_id, options: {
+      subject_hint: subject.trim() || null, language: "ko", help_level: helpLevel,
+      output_style: outputStyle, custom_instruction: customInstruction.trim() || null,
+    }});
   }
 
   const progress = job.data?.progress ?? 0;
@@ -203,9 +208,9 @@ export function App() {
     <main className="shell">
       <header className="header">
         <div>
-          <p className="eyebrow">AI WORKSHEET COMPANION</p>
+          <p className="eyebrow">DOCUMENT → KNOWLEDGE</p>
           <h1>NoteSolve</h1>
-          <p className="subtitle">사진 한 장을 검토 가능한 학습 노트로 바꿉니다.</p>
+          <p className="subtitle">프린트의 구조는 살리고, 필요한 만큼만 도와주는 Obsidian 자동화.</p>
         </div>
         <span className={`status ${health.isSuccess ? "online" : "offline"}`}>
           {health.isPending ? "API 확인 중" : health.isSuccess ? "API 연결됨" : "API 연결 안 됨"}
@@ -214,20 +219,25 @@ export function App() {
 
       <section className="panel">
         <label className="dropzone" onDragOver={(event) => event.preventDefault()} onDrop={handleDrop}>
-          <input type="file" accept="image/jpeg,image/png,application/pdf" onChange={handleFileInput} />
-          <span className="drop-title">프린트 사진 또는 PDF를 여기에 놓으세요</span>
-          <span className="drop-help">JPG · PNG · PDF</span>
-          <span className="button-like">파일 선택</span>
+          <input multiple type="file" accept="image/jpeg,image/png,application/pdf" onChange={handleFileInput} />
+          <span className="drop-icon">N</span>
+          <span className="drop-title">여러 장의 프린트 또는 PDF를 놓으세요</span>
+          <span className="drop-help">JPG · PNG · PDF · 최대 30개 · 선택 순서가 페이지 순서입니다</span>
+          <span className="button-like">페이지 선택</span>
         </label>
 
         {validationError && <p className="message error">{validationError}</p>}
-        {file && (
-          <div className="selection">
-            {previewUrl ? <img src={previewUrl} alt="선택한 프린트 미리보기" /> : <div className="pdf">PDF</div>}
-            <div>
-              <p className="filename">{file.name}</p>
-              <p className="meta">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-              <button disabled={upload.isPending} onClick={() => upload.mutate(file)}>
+        {files.length > 0 && (
+          <div className="selection-stack">
+            <div className="page-strip">{files.map((file, index) => <div className="page-chip" key={`${file.name}-${index}`}><b>{index + 1}</b><span>{file.name}</span></div>)}</div>
+            <div className="options-grid">
+              <label><span>과목</span><input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="자동 인식 (또는 직접 입력)" /></label>
+              <label><span>학습 도움</span><select value={helpLevel} onChange={(e) => setHelpLevel(e.target.value as AnalyzeOptions["help_level"])}><option value="none">원문 정리만</option><option value="answers">답만 채우기</option><option value="concise">간단한 설명</option><option value="detailed">자세한 설명</option></select></label>
+              <label><span>정리 방식</span><select value={outputStyle} onChange={(e) => setOutputStyle(e.target.value as AnalyzeOptions["output_style"])}><option value="source_faithful">원본 구조 유지</option><option value="study_notes">학습 노트</option><option value="summary">핵심 요약</option></select></label>
+              <label className="wide"><span>추가 요청</span><input value={customInstruction} onChange={(e) => setCustomInstruction(e.target.value)} placeholder="예: 영어 문장은 원문과 번역을 함께 표시" /></label>
+            </div>
+            <div className="upload-cta"><span><b>{files.length}개 페이지</b> · {(files.reduce((sum, f) => sum + f.size, 0) / 1024 / 1024).toFixed(2)} MB</span>
+              <button disabled={upload.isPending} onClick={() => upload.mutate(files)}>
                 {upload.isPending ? "업로드 중…" : "NoteSolve에 업로드"}
               </button>
             </div>
@@ -239,7 +249,7 @@ export function App() {
           <div className="upload-result" role="status">
             <div>
               <strong>{upload.data.duplicate ? "이미 등록된 문서입니다." : "업로드가 완료되었습니다."}</strong>
-              <p>AI가 문제 인식, 풀이와 검산을 한 번에 수행합니다.</p>
+              <p>문서 유형과 과목을 인식해 원본 구조에 맞는 학습 노트를 만듭니다.</p>
             </div>
             <button disabled={analysis.isPending || (analysisStarted && job.data?.stage !== "failed")} onClick={startAnalysis}>
               {analysis.isPending ? "분석 요청 중…" : "분석 시작"}
@@ -277,9 +287,9 @@ export function App() {
             <>
               <div className="panel results-summary">
                 <div>
-                  <p className="section-kicker">WORKSHEET RESULT</p>
-                  <h2>{result.data.result.document.subject}</h2>
-                  <p>{result.data.result.document.unit ?? "단원 미분류"} · 문제 {result.data.result.problems.length}개</p>
+                  <p className="section-kicker">STUDY DOCUMENT</p>
+                  <h2>{result.data.result.document.title ?? result.data.result.document.subject}</h2>
+                  <p>{result.data.result.document.subject} · {result.data.result.document.unit ?? "단원 미분류"} · 블록 {result.data.result.blocks.length}개</p>
                 </div>
                 <dl>
                   <div><dt>문서 신뢰도</dt><dd>{Math.round(result.data.result.document.confidence * 100)}%</dd></div>
@@ -398,8 +408,10 @@ export function App() {
               {result.data.result.document.warnings.length > 0 && (
                 <div className="document-warnings">문서 검토 필요: {result.data.result.document.warnings.join(" · ")}</div>
               )}
-              <div className="problem-list">
-                {result.data.result.problems.map((problem) => <ProblemCard key={problem.id} problem={problem} />)}
+              <div className="document-flow">
+                {result.data.result.blocks.length > 0
+                  ? result.data.result.blocks.map((block) => <DocumentBlock key={block.id} block={block} />)
+                  : result.data.result.problems.map((problem) => <ProblemCard key={problem.id} problem={problem} />)}
               </div>
             </>
           )}

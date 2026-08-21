@@ -58,6 +58,26 @@ export interface ProblemResult {
   needs_review: boolean;
 }
 
+export interface ContentBlock {
+  id: string;
+  kind: "heading" | "paragraph" | "list" | "table" | "definition" | "example" | "exercise" | "fill_in_the_blank" | "quote" | "callout";
+  source_page: number;
+  heading_level: number | null;
+  markdown: string;
+  answer_markdown: string | null;
+  explanation_markdown: string | null;
+  confidence: number;
+  warnings: string[];
+}
+
+export interface AnalyzeOptions {
+  subject_hint: string | null;
+  language: string;
+  help_level: "none" | "answers" | "concise" | "detailed";
+  output_style: "source_faithful" | "study_notes" | "summary";
+  custom_instruction: string | null;
+}
+
 export interface WorksheetResultResponse {
   document_id: string;
   job_id: string;
@@ -69,9 +89,12 @@ export interface WorksheetResultResponse {
     document: {
       subject: string;
       unit: string | null;
+      title: string | null;
+      kind: "worksheet" | "notes" | "fill_in_the_blank" | "reference" | "mixed";
       confidence: number;
       warnings: string[];
     };
+    blocks: ContentBlock[];
     problems: ProblemResult[];
   };
   usage: {
@@ -121,9 +144,9 @@ export async function getHealth(): Promise<HealthResponse> {
   return response.json() as Promise<HealthResponse>;
 }
 
-export async function uploadDocument(file: File): Promise<CreateDocumentResponse> {
+export async function uploadDocument(files: File[]): Promise<CreateDocumentResponse> {
   const body = new FormData();
-  body.append("file", file);
+  files.forEach((file) => body.append("file", file));
   const response = await fetch(`${API_BASE_URL}/documents`, { method: "POST", body });
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
@@ -132,8 +155,10 @@ export async function uploadDocument(file: File): Promise<CreateDocumentResponse
   return response.json() as Promise<CreateDocumentResponse>;
 }
 
-export async function analyzeJob(jobId: string): Promise<AnalyzeJobResponse> {
-  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/analyze`, { method: "POST" });
+export async function analyzeJob({ jobId, options }: { jobId: string; options: AnalyzeOptions }): Promise<AnalyzeJobResponse> {
+  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/analyze`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(options),
+  });
   if (!response.ok) throw new Error("분석 작업을 시작하지 못했습니다.");
   return response.json() as Promise<AnalyzeJobResponse>;
 }

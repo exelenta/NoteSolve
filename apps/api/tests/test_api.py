@@ -44,6 +44,32 @@ def test_upload_and_job_status(client: TestClient) -> None:
     assert job.json()["document_id"] == payload["document_id"]
 
 
+def test_uploads_multiple_pages_and_accepts_study_options(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/documents",
+        files=[
+            ("file", ("page-1.png", b"first", "image/png")),
+            ("file", ("page-2.png", b"second", "image/png")),
+        ],
+    )
+    assert response.status_code == 201
+    analyze = client.post(
+        f"/api/v1/jobs/{response.json()['job_id']}/analyze",
+        json={
+            "subject_hint": "history",
+            "language": "ko",
+            "help_level": "detailed",
+            "output_style": "source_faithful",
+            "custom_instruction": "연표를 유지해줘",
+        },
+    )
+    assert analyze.status_code == 202
+    result = client.get(
+        f"/api/v1/documents/{response.json()['document_id']}/result"
+    ).json()
+    assert result["result"]["document"]["subject"] == "history"
+
+
 def test_duplicate_upload_reuses_document(client: TestClient) -> None:
     files = {"file": ("worksheet.png", b"same-file", "image/png")}
     first = client.post("/api/v1/documents", files=files).json()

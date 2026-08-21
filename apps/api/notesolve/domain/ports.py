@@ -35,6 +35,7 @@ class StorageProvider(Protocol):
         document_id: UUID,
         filename: str,
         chunks: AsyncIterator[bytes],
+        page_number: int | None = None,
     ) -> tuple[str, str, int]: ...
 
     async def read(self, storage_key: str) -> bytes: ...
