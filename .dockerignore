@@ -8,6 +8,7 @@ node_modules
 .notesolve-vault
 .env*
 .pytest_cache
+apps/api/tests/.tmp-*
 .mypy_cache
 .ruff_cache
 *.pyc
