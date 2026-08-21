@@ -13,7 +13,10 @@ class Settings(BaseSettings):
     data_dir: Path = Path(".notesolve-data")
     vault_dir: Path | None = None
     max_upload_mb: int = 25
-    cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
+    cors_origins: Annotated[list[str], NoDecode] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
     ai_provider: str = "fake"
     openai_api_key: str | None = None
     openai_model: str = "gpt-5.4"

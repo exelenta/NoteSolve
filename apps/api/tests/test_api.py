@@ -9,6 +9,18 @@ def test_health(client: TestClient) -> None:
     assert response.json()["service"] == "notesolve-api"
 
 
+def test_local_ip_web_origin_is_allowed(client: TestClient) -> None:
+    response = client.options(
+        "/api/v1/documents",
+        headers={
+            "Origin": "http://127.0.0.1:5173",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:5173"
+
+
 def test_upload_and_job_status(client: TestClient) -> None:
     response = client.post(
         "/api/v1/documents",
