@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     data_dir: Path = Path(".notesolve-data")
     max_upload_mb: int = 25
     cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
+    ai_provider: str = "fake"
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-5.4"
+    openai_base_url: str = "https://api.openai.com/v1"
 
     @field_validator("cors_origins", mode="before")
     @classmethod

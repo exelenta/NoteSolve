@@ -12,6 +12,10 @@ from notesolve.domain.models import (
 
 
 class FakeWorksheetAnalyzer:
+    provider_name = "fake"
+    model_name = "fake-worksheet-v1"
+    prompt_version = "worksheet-v1"
+
     async def analyze(self, files: Sequence[InputFile], options: AnalyzeOptions) -> WorksheetResult:
         return WorksheetResult(
             document=DocumentAnalysis(subject=options.subject_hint or "math", confidence=0.99),

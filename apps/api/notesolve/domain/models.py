@@ -76,6 +76,17 @@ class InputFile(BaseModel):
     storage_key: str
     content_type: str
     original_filename: str
+    content: bytes
+
+
+class AnalysisRecord(BaseModel):
+    document_id: UUID
+    job_id: UUID
+    provider: str
+    model: str
+    prompt_version: str
+    result: WorksheetResult
+    created_at: datetime
 
 
 class VaultOperation(BaseModel):

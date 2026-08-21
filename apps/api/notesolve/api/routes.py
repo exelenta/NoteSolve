@@ -2,17 +2,29 @@ from collections.abc import AsyncIterator
 from typing import Annotated
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from notesolve.api.schemas import CreateDocumentResponse, HealthResponse, JobStatusResponse
+from notesolve.api.schemas import (
+    AnalyzeJobResponse,
+    CreateDocumentResponse,
+    HealthResponse,
+    JobStatusResponse,
+    WorksheetResultResponse,
+)
+from notesolve.application.tasks import AnalysisTask, get_analysis_task
 from notesolve.config import Settings, get_settings
-from notesolve.domain.models import LOCAL_WORKSPACE_ID, DocumentStatus, PipelineStage
+from notesolve.domain.models import (
+    LOCAL_WORKSPACE_ID,
+    DocumentStatus,
+    PipelineStage,
+    WorksheetResult,
+)
 from notesolve.infrastructure.db import get_session
 from notesolve.infrastructure.local_storage import LocalStorageProvider
-from notesolve.infrastructure.tables import DocumentRow, PipelineJobRow
+from notesolve.infrastructure.tables import DocumentRow, PipelineJobRow, WorksheetResultRow
 
 router = APIRouter()
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "application/pdf"}
@@ -131,4 +143,53 @@ def get_job(job_id: UUID, session: Annotated[Session, Depends(get_session)]) -> 
         progress=job.progress,
         error_code=job.error_code,
         error_message=job.error_message,
+    )
+
+
+@router.post(
+    "/jobs/{job_id}/analyze",
+    response_model=AnalyzeJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def analyze_job(
+    job_id: UUID,
+    background_tasks: BackgroundTasks,
+    session: Annotated[Session, Depends(get_session)],
+    analysis_task: Annotated[AnalysisTask, Depends(get_analysis_task)],
+) -> AnalyzeJobResponse:
+    job = session.get(PipelineJobRow, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.stage == PipelineStage.FAILED:
+        job.error_code = None
+        job.error_message = None
+        job.stage = PipelineStage.INGESTED
+        session.commit()
+    background_tasks.add_task(analysis_task, job_id)
+    return AnalyzeJobResponse(job_id=job_id, status="accepted")
+
+
+@router.get(
+    "/documents/{document_id}/result",
+    response_model=WorksheetResultResponse,
+)
+def get_document_result(
+    document_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+) -> WorksheetResultResponse:
+    row = session.scalar(
+        select(WorksheetResultRow).where(WorksheetResultRow.document_id == document_id)
+    )
+    if row is None:
+        document = session.get(DocumentRow, document_id)
+        if document is None:
+            raise HTTPException(status_code=404, detail="Document not found")
+        raise HTTPException(status_code=409, detail="Document analysis is not complete")
+    return WorksheetResultResponse(
+        document_id=row.document_id,
+        job_id=row.job_id,
+        provider=row.provider,
+        model=row.model,
+        prompt_version=row.prompt_version,
+        result=WorksheetResult.model_validate(row.result_json),
     )

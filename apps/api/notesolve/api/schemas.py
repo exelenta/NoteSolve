@@ -2,7 +2,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from notesolve.domain.models import PipelineStage
+from notesolve.domain.models import PipelineStage, WorksheetResult
 
 
 class HealthResponse(BaseModel):
@@ -25,3 +25,17 @@ class JobStatusResponse(BaseModel):
     progress: int
     error_code: str | None
     error_message: str | None
+
+
+class AnalyzeJobResponse(BaseModel):
+    job_id: UUID
+    status: str
+
+
+class WorksheetResultResponse(BaseModel):
+    document_id: UUID
+    job_id: UUID
+    provider: str
+    model: str
+    prompt_version: str
+    result: WorksheetResult

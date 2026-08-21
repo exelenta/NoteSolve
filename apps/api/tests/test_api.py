@@ -44,3 +44,30 @@ def test_rejects_large_upload(client: TestClient) -> None:
         files={"file": ("large.png", b"x" * (1024 * 1024 + 1), "image/png")},
     )
     assert response.status_code == 413
+
+
+def test_analyzes_uploaded_document_with_fake_provider(client: TestClient) -> None:
+    uploaded = client.post(
+        "/api/v1/documents",
+        files={"file": ("worksheet.png", b"fake-image", "image/png")},
+    ).json()
+    analyze = client.post(f"/api/v1/jobs/{uploaded['job_id']}/analyze")
+    assert analyze.status_code == 202
+
+    job = client.get(f"/api/v1/jobs/{uploaded['job_id']}").json()
+    assert job["stage"] == "completed"
+    assert job["progress"] == 100
+
+    result = client.get(f"/api/v1/documents/{uploaded['document_id']}/result")
+    assert result.status_code == 200
+    assert result.json()["provider"] == "fake"
+    assert result.json()["result"]["problems"][0]["answer_markdown"] == "$x = 1$"
+
+
+def test_result_returns_conflict_before_analysis(client: TestClient) -> None:
+    uploaded = client.post(
+        "/api/v1/documents",
+        files={"file": ("worksheet.png", b"not-analyzed", "image/png")},
+    ).json()
+    response = client.get(f"/api/v1/documents/{uploaded['document_id']}/result")
+    assert response.status_code == 409

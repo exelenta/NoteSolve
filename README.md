@@ -12,6 +12,8 @@ The current foundation provides:
 - SQLite persistence with Alembic migrations
 - local object storage using portable storage keys
 - replaceable analyzer, storage, job-runner, and Vault interfaces
+- Fake/OpenAI worksheet analyzers with strict structured output
+- background analysis jobs and persisted `WorksheetResult` retrieval
 - backend and frontend tests
 
 ## Prerequisites
@@ -57,3 +59,15 @@ pnpm build
 
 Uploaded files and the local SQLite database are stored under `.notesolve-data/` by default.
 
+## AI provider
+
+Development defaults to the deterministic fake analyzer. To call OpenAI, set:
+
+```bash
+NOTESOLVE_AI_PROVIDER=openai
+NOTESOLVE_OPENAI_API_KEY=your-key
+NOTESOLVE_OPENAI_MODEL=gpt-5.4
+```
+
+Upload a file, start analysis with `POST /api/v1/jobs/{job_id}/analyze`, and retrieve the
+structured result from `GET /api/v1/documents/{document_id}/result`.
