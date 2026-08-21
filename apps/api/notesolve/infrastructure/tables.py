@@ -80,3 +80,23 @@ class VaultRevisionRow(Base):
     previous_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     applied_content_hash: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class AgentEditJobRow(Base):
+    __tablename__ = "agent_edit_jobs"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    workspace_id: Mapped[UUID] = mapped_column(index=True)
+    source_change_set_id: Mapped[UUID] = mapped_column(
+        ForeignKey("vault_change_sets.id"), index=True
+    )
+    result_change_set_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("vault_change_sets.id"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(50))
+    instruction: Mapped[str] = mapped_column(Text)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )

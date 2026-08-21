@@ -8,6 +8,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from notesolve.api.schemas import (
+    AgentEditJobResponse,
+    AgentEditRequest,
     AnalyzeJobResponse,
     CreateDocumentResponse,
     HealthResponse,
@@ -16,12 +18,19 @@ from notesolve.api.schemas import (
     VaultPreviewResponse,
     WorksheetResultResponse,
 )
+from notesolve.application.agent_edit import AgentEditService
 from notesolve.application.markdown import build_vault_preview
-from notesolve.application.tasks import AnalysisTask, get_analysis_task
+from notesolve.application.tasks import (
+    AgentEditTask,
+    AnalysisTask,
+    get_agent_edit_task,
+    get_analysis_task,
+)
 from notesolve.application.vault import VaultChangeSetService
 from notesolve.config import Settings, get_settings
 from notesolve.domain.models import (
     LOCAL_WORKSPACE_ID,
+    AgentEditJobStatus,
     DocumentStatus,
     PipelineStage,
     VaultChangeSetStatus,
@@ -31,11 +40,13 @@ from notesolve.infrastructure.db import get_session
 from notesolve.infrastructure.local_storage import LocalStorageProvider
 from notesolve.infrastructure.local_vault import LocalVaultRepository, VaultConflictError
 from notesolve.infrastructure.tables import (
+    AgentEditJobRow,
     DocumentRow,
     PipelineJobRow,
     VaultChangeSetRow,
     WorksheetResultRow,
 )
+from notesolve.providers.factory import create_vault_note_editor
 
 router = APIRouter()
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "application/pdf"}
@@ -321,3 +332,52 @@ def rollback_vault_change_set(
     except (RuntimeError, VaultConflictError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return _vault_response(row, service)
+
+
+@router.post(
+    "/vault-change-sets/{change_set_id}/edit-proposals",
+    response_model=AgentEditJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def create_agent_edit_proposal(
+    change_set_id: UUID,
+    request: AgentEditRequest,
+    background_tasks: BackgroundTasks,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    agent_edit_task: Annotated[AgentEditTask, Depends(get_agent_edit_task)],
+) -> AgentEditJobResponse:
+    service = AgentEditService(
+        session=session,
+        vault=LocalVaultRepository(settings.resolved_vault_dir),
+        editor=create_vault_note_editor(settings),
+    )
+    try:
+        job = service.create_job(change_set_id, request.instruction)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    background_tasks.add_task(agent_edit_task, job.id)
+    return AgentEditJobResponse(
+        job_id=job.id,
+        status=AgentEditJobStatus(job.status),
+        result_change_set_id=job.result_change_set_id,
+        error_message=job.error_message,
+    )
+
+
+@router.get("/agent-edit-jobs/{job_id}", response_model=AgentEditJobResponse)
+def get_agent_edit_job(
+    job_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+) -> AgentEditJobResponse:
+    job = session.get(AgentEditJobRow, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Agent edit job not found")
+    return AgentEditJobResponse(
+        job_id=job.id,
+        status=AgentEditJobStatus(job.status),
+        result_change_set_id=job.result_change_set_id,
+        error_message=job.error_message,
+    )

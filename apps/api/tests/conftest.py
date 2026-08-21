@@ -2,13 +2,16 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from notesolve.application.agent_edit import AgentEditService
 from notesolve.application.analysis import AnalysisService
-from notesolve.application.tasks import get_analysis_task
+from notesolve.application.tasks import get_agent_edit_task, get_analysis_task
 from notesolve.config import Settings, get_settings
 from notesolve.infrastructure.db import Base, get_session
 from notesolve.infrastructure.local_storage import LocalStorageProvider
+from notesolve.infrastructure.local_vault import LocalVaultRepository
 from notesolve.main import app
 from notesolve.providers.fake_analyzer import FakeWorksheetAnalyzer, FakeWorksheetVerifier
+from notesolve.providers.fake_note_editor import FakeVaultNoteEditor
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -37,9 +40,19 @@ def client(tmp_path: Path) -> TestClient:
             )
             await service.run(job_id)
 
+    async def agent_edit_task_override(job_id):
+        with session_factory() as session:
+            service = AgentEditService(
+                session=session,
+                vault=LocalVaultRepository(settings.resolved_vault_dir),
+                editor=FakeVaultNoteEditor(),
+            )
+            await service.run(job_id)
+
     app.dependency_overrides[get_session] = session_override
     app.dependency_overrides[get_settings] = lambda: settings
     app.dependency_overrides[get_analysis_task] = lambda: analysis_task_override
+    app.dependency_overrides[get_agent_edit_task] = lambda: agent_edit_task_override
     with TestClient(app) as test_client:
         test_client.notesolve_vault_dir = settings.resolved_vault_dir  # type: ignore[attr-defined]
         yield test_client

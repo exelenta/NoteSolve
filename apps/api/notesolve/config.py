@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     verification_enabled: bool = True
     verification_threshold: float = Field(default=0.9, ge=0, le=1)
     openai_verification_model: str | None = None
+    openai_note_editor_model: str | None = None
 
     @field_validator("cors_origins", mode="before")
     @classmethod

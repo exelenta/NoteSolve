@@ -19,6 +19,7 @@ The current foundation provides:
 - safe Markdown and LaTeX rendering in the review UI
 - approval-required Obsidian ChangeSet previews with subject/unit folder classification
 - persisted Vault ChangeSets with explicit apply, conflict detection, revision history, and rollback
+- asynchronous AI note-edit jobs that produce approval-required update ChangeSets
 
 ## Prerequisites
 
@@ -95,3 +96,16 @@ POST /api/v1/vault-change-sets/{change_set_id}/rollback
 Set `NOTESOLVE_VAULT_DIR` to an existing Obsidian Vault path. If omitted, development uses
 `.notesolve-data/vault`. Apply and rollback both reject the operation if the target file changed
 since the expected revision.
+
+## AI note edits
+
+After a Vault ChangeSet has been applied, request a natural-language edit:
+
+```text
+POST /api/v1/vault-change-sets/{change_set_id}/edit-proposals
+GET  /api/v1/agent-edit-jobs/{job_id}
+```
+
+The agent receives the current Markdown and returns a complete revised note through a strict
+structured-output schema. It cannot choose or change the Vault path. The resulting update is
+stored as another pending ChangeSet and still requires explicit approval before any file write.

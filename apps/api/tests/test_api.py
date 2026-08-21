@@ -171,3 +171,40 @@ def test_vault_rollback_restores_previous_file(client: TestClient) -> None:
     response = client.post(f"/api/v1/vault-change-sets/{change_set_id}/rollback")
     assert response.status_code == 200
     assert vault_file.read_text(encoding="utf-8") == "previous note"
+
+
+def test_agent_edit_job_proposes_approval_required_update(client: TestClient) -> None:
+    uploaded = _analyzed_document(client, b"agent-edit")
+    created = client.post(
+        f"/api/v1/documents/{uploaded['document_id']}/vault-change-sets"
+    ).json()
+    initial_change_set_id = created["change_set"]["id"]
+    applied = client.post(
+        f"/api/v1/vault-change-sets/{initial_change_set_id}/apply"
+    ).json()
+    path = applied["change_set"]["operations"][0]["path"]
+    vault_file = Path(client.notesolve_vault_dir) / path  # type: ignore[attr-defined]
+    original = vault_file.read_text(encoding="utf-8")
+
+    requested = client.post(
+        f"/api/v1/vault-change-sets/{initial_change_set_id}/edit-proposals",
+        json={"instruction": "풀이 끝에 핵심 요약을 추가해줘"},
+    )
+    assert requested.status_code == 202
+    job = client.get(f"/api/v1/agent-edit-jobs/{requested.json()['job_id']}").json()
+    assert job["status"] == "completed"
+    assert vault_file.read_text(encoding="utf-8") == original
+
+    proposal = client.get(
+        f"/api/v1/vault-change-sets/{job['result_change_set_id']}"
+    ).json()
+    assert proposal["status"] == "pending"
+    operation = proposal["change_set"]["operations"][0]
+    assert operation["operation"] == "update"
+    assert operation["path"] == path
+    assert "풀이 끝에 핵심 요약을 추가해줘" in operation["content"]
+
+    client.post(
+        f"/api/v1/vault-change-sets/{job['result_change_set_id']}/apply"
+    )
+    assert "풀이 끝에 핵심 요약을 추가해줘" in vault_file.read_text(encoding="utf-8")

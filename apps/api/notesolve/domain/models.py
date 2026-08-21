@@ -40,6 +40,13 @@ class VaultChangeSetStatus(StrEnum):
     ROLLED_BACK = "rolled_back"
 
 
+class AgentEditJobStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 class VerificationResult(BaseModel):
     status: VerificationStatus
     method: str | None = None
@@ -108,6 +115,11 @@ class VaultChangeSet(BaseModel):
     operations: list[VaultOperation]
     requires_approval: bool = True
     reason: str
+
+
+class NoteEditProposal(BaseModel):
+    content: str = Field(min_length=1, max_length=500_000)
+    summary: str = Field(min_length=1, max_length=500)
 
 
 def utcnow() -> datetime:

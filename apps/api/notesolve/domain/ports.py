@@ -5,6 +5,7 @@ from uuid import UUID
 from notesolve.domain.models import (
     AnalyzeOptions,
     InputFile,
+    NoteEditProposal,
     ProblemResult,
     VerificationResult,
     WorksheetResult,
@@ -53,3 +54,12 @@ class VaultRepository(Protocol):
     def restore(self, path: str, previous_content: str | None, expected_hash: str) -> None: ...
 
     def content_hash(self, content: str) -> str: ...
+
+
+class VaultNoteEditor(Protocol):
+    async def edit(
+        self,
+        *,
+        current_content: str,
+        instruction: str,
+    ) -> NoteEditProposal: ...

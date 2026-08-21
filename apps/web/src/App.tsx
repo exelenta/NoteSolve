@@ -8,10 +8,13 @@ import {
   analyzeJob,
   applyVaultChangeSet,
   createVaultChangeSet,
+  getAgentEditJob,
+  getVaultChangeSet,
   getDocumentResult,
   getHealth,
   getJob,
   rollbackVaultChangeSet,
+  requestAgentEdit,
   uploadDocument,
 } from "./api";
 import type { ProblemResult } from "./api";
@@ -100,6 +103,7 @@ export function App() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [analysisStarted, setAnalysisStarted] = useState(false);
+  const [editInstruction, setEditInstruction] = useState("");
   const health = useQuery({ queryKey: ["health"], queryFn: getHealth, retry: false });
   const upload = useMutation({
     mutationFn: uploadDocument,
@@ -112,6 +116,25 @@ export function App() {
   const vaultChangeSet = useMutation({ mutationFn: createVaultChangeSet });
   const vaultApply = useMutation({ mutationFn: applyVaultChangeSet });
   const vaultRollback = useMutation({ mutationFn: rollbackVaultChangeSet });
+  const agentEdit = useMutation({
+    mutationFn: ({ changeSetId, instruction }: { changeSetId: string; instruction: string }) =>
+      requestAgentEdit(changeSetId, instruction),
+  });
+  const agentJob = useQuery({
+    queryKey: ["agent-edit-job", agentEdit.data?.job_id],
+    queryFn: () => getAgentEditJob(agentEdit.data!.job_id),
+    enabled: Boolean(agentEdit.data?.job_id),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "completed" || status === "failed" ? false : 1000;
+    },
+  });
+  const agentProposal = useQuery({
+    queryKey: ["vault-change-set", agentJob.data?.result_change_set_id],
+    queryFn: () => getVaultChangeSet(agentJob.data!.result_change_set_id!),
+    enabled: agentJob.data?.status === "completed" && Boolean(agentJob.data.result_change_set_id),
+  });
+  const proposalApply = useMutation({ mutationFn: applyVaultChangeSet });
   const job = useQuery({
     queryKey: ["job", upload.data?.job_id],
     queryFn: () => getJob(upload.data!.job_id),
@@ -143,6 +166,9 @@ export function App() {
     vaultChangeSet.reset();
     vaultApply.reset();
     vaultRollback.reset();
+    agentEdit.reset();
+    proposalApply.reset();
+    setEditInstruction("");
     setAnalysisStarted(false);
     if (!candidate) return;
     if (!ACCEPTED_TYPES.includes(candidate.type)) {
@@ -305,6 +331,62 @@ export function App() {
                   </div>
                   {vaultApply.isError && <p className="message error">{vaultApply.error.message}</p>}
                   {vaultRollback.isError && <p className="message error">{vaultRollback.error.message}</p>}
+                </div>
+              )}
+              {currentVaultChangeSet?.status === "applied" && (
+                <div className="panel agent-panel">
+                  <p className="section-kicker">AI NOTE EDITOR</p>
+                  <h2>노트 수정 요청</h2>
+                  <p className="agent-help">AI는 Vault를 직접 수정하지 않고 승인 가능한 변경안만 제안합니다.</p>
+                  <textarea
+                    value={editInstruction}
+                    onChange={(event) => setEditInstruction(event.target.value)}
+                    placeholder="예: 문제 1의 풀이를 더 자세히 설명하고 핵심 공식을 마지막에 정리해줘"
+                    maxLength={4000}
+                  />
+                  <button
+                    disabled={agentEdit.isPending || !editInstruction.trim()}
+                    onClick={() => agentEdit.mutate({
+                      changeSetId: currentVaultChangeSet.change_set.id,
+                      instruction: editInstruction,
+                    })}
+                  >
+                    {agentEdit.isPending ? "수정 요청 전송 중…" : "AI 변경안 만들기"}
+                  </button>
+                  {agentEdit.isError && <p className="message error">{agentEdit.error.message}</p>}
+                  {agentJob.data && agentJob.data.status !== "completed" && agentJob.data.status !== "failed" && (
+                    <p className="agent-status">AI가 노트를 수정하고 있습니다…</p>
+                  )}
+                  {agentJob.data?.status === "failed" && (
+                    <p className="message error">{agentJob.data.error_message ?? "AI 수정에 실패했습니다."}</p>
+                  )}
+                </div>
+              )}
+              {agentProposal.data && (
+                <div className="panel agent-proposal">
+                  <div className="section-heading">
+                    <div>
+                      <p className="section-kicker">AI EDIT PROPOSAL</p>
+                      <h2>AI 수정 변경안</h2>
+                    </div>
+                    <span className={`approval-badge ${proposalApply.data?.status ?? agentProposal.data.status}`}>
+                      {proposalApply.data?.status === "applied" ? "Vault 반영됨" : "승인 필요"}
+                    </span>
+                  </div>
+                  <p>{agentProposal.data.change_set.reason}</p>
+                  <p className="vault-path">{agentProposal.data.change_set.operations[0]?.path}</p>
+                  <pre>{agentProposal.data.change_set.operations[0]?.content}</pre>
+                  {!proposalApply.data && (
+                    <div className="vault-actions">
+                      <button
+                        disabled={proposalApply.isPending}
+                        onClick={() => proposalApply.mutate(agentProposal.data.change_set.id)}
+                      >
+                        {proposalApply.isPending ? "수정 반영 중…" : "AI 수정안 승인"}
+                      </button>
+                    </div>
+                  )}
+                  {proposalApply.isError && <p className="message error">{proposalApply.error.message}</p>}
                 </div>
               )}
               {result.data.result.document.warnings.length > 0 && (

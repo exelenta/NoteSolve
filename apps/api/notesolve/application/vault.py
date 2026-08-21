@@ -41,7 +41,7 @@ class VaultChangeSetService:
             original_filename=document.original_filename,
             result=WorksheetResult.model_validate(result_row.result_json),
         )
-        operation = self._single_create_operation(preview)
+        operation = self._single_write_operation(preview)
         row = VaultChangeSetRow(
             id=preview.id,
             workspace_id=LOCAL_WORKSPACE_ID,
@@ -66,9 +66,9 @@ class VaultChangeSetService:
         if row.status != VaultChangeSetStatus.PENDING:
             raise RuntimeError(f"ChangeSet cannot be applied from status {row.status}")
         change_set = self.to_domain(row)
-        operation = self._single_create_operation(change_set)
+        operation = self._single_write_operation(change_set)
         if operation.content is None:
-            raise ValueError("Create operation requires content")
+            raise ValueError("Vault write operation requires content")
         try:
             previous_content = self._vault.write(
                 operation.path,
@@ -131,7 +131,10 @@ class VaultChangeSetService:
         )
 
     @staticmethod
-    def _single_create_operation(change_set: VaultChangeSet) -> VaultOperation:
-        if len(change_set.operations) != 1 or change_set.operations[0].operation != "create":
-            raise ValueError("Day 6 supports exactly one create operation")
+    def _single_write_operation(change_set: VaultChangeSet) -> VaultOperation:
+        if (
+            len(change_set.operations) != 1
+            or change_set.operations[0].operation not in {"create", "update"}
+        ):
+            raise ValueError("Exactly one create or update operation is required")
         return change_set.operations[0]

@@ -1,8 +1,9 @@
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from notesolve.domain.models import (
+    AgentEditJobStatus,
     PipelineStage,
     VaultChangeSet,
     VaultChangeSetStatus,
@@ -56,3 +57,14 @@ class VaultChangeSetResponse(BaseModel):
     status: VaultChangeSetStatus
     error_message: str | None
     change_set: VaultChangeSet
+
+
+class AgentEditRequest(BaseModel):
+    instruction: str = Field(min_length=1, max_length=4000)
+
+
+class AgentEditJobResponse(BaseModel):
+    job_id: UUID
+    status: AgentEditJobStatus
+    result_change_set_id: UUID | None
+    error_message: str | None

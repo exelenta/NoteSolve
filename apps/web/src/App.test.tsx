@@ -109,6 +109,58 @@ describe("App", () => {
           },
         }), { status: 200 });
       }
+      if (url.endsWith("/vault-change-sets/changeset-1/edit-proposals")) {
+        return new Response(JSON.stringify({
+          job_id: "agent-job-1",
+          status: "queued",
+          result_change_set_id: null,
+          error_message: null,
+        }), { status: 202 });
+      }
+      if (url.endsWith("/agent-edit-jobs/agent-job-1")) {
+        return new Response(JSON.stringify({
+          job_id: "agent-job-1",
+          status: "completed",
+          result_change_set_id: "edit-1",
+          error_message: null,
+        }), { status: 200 });
+      }
+      if (url.endsWith("/vault-change-sets/edit-1/apply")) {
+        return new Response(JSON.stringify({
+          document_id: "doc-1",
+          status: "applied",
+          error_message: null,
+          change_set: {
+            id: "edit-1",
+            base_revision: "base",
+            requires_approval: true,
+            reason: "풀이를 자세히 확장",
+            operations: [{
+              operation: "update",
+              path: "NoteSolve/수학/이차방정식/worksheet-doc-1.md",
+              content: "# 수학\n\n자세한 풀이",
+            }],
+          },
+        }), { status: 200 });
+      }
+      if (url.endsWith("/vault-change-sets/edit-1")) {
+        return new Response(JSON.stringify({
+          document_id: "doc-1",
+          status: "pending",
+          error_message: null,
+          change_set: {
+            id: "edit-1",
+            base_revision: "base",
+            requires_approval: true,
+            reason: "풀이를 자세히 확장",
+            operations: [{
+              operation: "update",
+              path: "NoteSolve/수학/이차방정식/worksheet-doc-1.md",
+              content: "# 수학\n\n자세한 풀이",
+            }],
+          },
+        }), { status: 200 });
+      }
       return new Response(null, { status: 404 });
     }));
     Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:preview") });
@@ -134,8 +186,16 @@ describe("App", () => {
     expect(screen.getByText("NoteSolve/수학/이차방정식/worksheet-doc-1.md")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "승인하고 Vault에 반영" }));
     expect(await screen.findByText("Vault 반영됨")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "변경사항 롤백" }));
-    expect(await screen.findByText("롤백 완료")).toBeInTheDocument();
+
+    await userEvent.type(
+      screen.getByPlaceholderText(/문제 1의 풀이를 더 자세히/),
+      "풀이를 자세히 써줘",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "AI 변경안 만들기" }));
+    expect(await screen.findByText("AI 수정 변경안")).toBeInTheDocument();
+    expect(screen.getByText("풀이를 자세히 확장")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "AI 수정안 승인" }));
+    expect((await screen.findAllByText("Vault 반영됨")).length).toBeGreaterThan(0);
   });
 
   it("rejects an unsupported file", async () => {

@@ -98,6 +98,13 @@ export interface VaultChangeSetResponse extends VaultPreviewResponse {
   error_message: string | null;
 }
 
+export interface AgentEditJobResponse {
+  job_id: string;
+  status: "queued" | "running" | "completed" | "failed";
+  result_change_set_id: string | null;
+  error_message: string | null;
+}
+
 export async function getHealth(): Promise<HealthResponse> {
   const response = await fetch(`${API_BASE_URL}/health`);
   if (!response.ok) throw new Error("API에 연결할 수 없습니다.");
@@ -166,5 +173,33 @@ export async function rollbackVaultChangeSet(changeSetId: string): Promise<Vault
     const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
     throw new Error(payload?.detail ?? "Vault 롤백에 실패했습니다.");
   }
+  return response.json() as Promise<VaultChangeSetResponse>;
+}
+
+export async function requestAgentEdit(
+  changeSetId: string,
+  instruction: string,
+): Promise<AgentEditJobResponse> {
+  const response = await fetch(`${API_BASE_URL}/vault-change-sets/${changeSetId}/edit-proposals`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ instruction }),
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(payload?.detail ?? "AI 수정 요청을 시작하지 못했습니다.");
+  }
+  return response.json() as Promise<AgentEditJobResponse>;
+}
+
+export async function getAgentEditJob(jobId: string): Promise<AgentEditJobResponse> {
+  const response = await fetch(`${API_BASE_URL}/agent-edit-jobs/${jobId}`);
+  if (!response.ok) throw new Error("AI 수정 작업 상태를 불러오지 못했습니다.");
+  return response.json() as Promise<AgentEditJobResponse>;
+}
+
+export async function getVaultChangeSet(changeSetId: string): Promise<VaultChangeSetResponse> {
+  const response = await fetch(`${API_BASE_URL}/vault-change-sets/${changeSetId}`);
+  if (!response.ok) throw new Error("AI 수정 변경안을 불러오지 못했습니다.");
   return response.json() as Promise<VaultChangeSetResponse>;
 }

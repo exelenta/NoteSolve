@@ -7,7 +7,7 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; }
-button, input { font: inherit; }
+button, input, textarea { font: inherit; }
 
 .shell { width: min(920px, calc(100% - 40px)); margin: 0 auto; padding: 72px 0; }
 .header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 32px; }
@@ -87,6 +87,13 @@ h2 { font-size: 26px; letter-spacing: -.025em; margin: 0; }
 .vault-preview pre { background: #0f172a; border-radius: 12px; color: #e2e8f0; font: 13px/1.65 ui-monospace, monospace; margin: 0; max-height: 520px; overflow: auto; padding: 18px; white-space: pre-wrap; }
 .vault-actions { display: flex; justify-content: flex-end; margin-top: 16px; }
 .danger-button { background: #fee2e2; color: #991b1b; }
+.agent-panel, .agent-proposal { margin-top: 18px; }
+.agent-help { color: #64748b; margin: 8px 0 16px; }
+.agent-panel textarea { border: 1px solid #cbd5e1; border-radius: 12px; display: block; line-height: 1.6; margin-bottom: 12px; min-height: 120px; padding: 14px; resize: vertical; width: 100%; }
+.agent-panel textarea:focus { border-color: #2563eb; outline: 3px solid #dbeafe; }
+.agent-status { background: #eff6ff; border-radius: 10px; color: #1d4ed8; margin: 14px 0 0; padding: 12px 14px; }
+.agent-proposal > p { color: #475569; }
+.agent-proposal pre { background: #0f172a; border-radius: 12px; color: #e2e8f0; font: 13px/1.65 ui-monospace, monospace; max-height: 520px; overflow: auto; padding: 18px; white-space: pre-wrap; }
 
 @media (max-width: 640px) {
   .shell { width: min(100% - 24px, 920px); padding: 36px 0; }
