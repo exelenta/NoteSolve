@@ -17,6 +17,7 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]
+    allowed_hosts: Annotated[list[str], NoDecode] = ["localhost", "127.0.0.1", "testserver"]
     ai_provider: str = "fake"
     openai_api_key: str | None = None
     openai_model: str = "gpt-5.4"
@@ -27,7 +28,7 @@ class Settings(BaseSettings):
     openai_note_editor_model: str | None = None
     openai_max_retries: int = Field(default=2, ge=0, le=5)
 
-    @field_validator("cors_origins", mode="before")
+    @field_validator("cors_origins", "allowed_hosts", mode="before")
     @classmethod
     def split_origins(cls, value: object) -> object:
         if isinstance(value, str):
@@ -45,6 +46,10 @@ class Settings(BaseSettings):
     @property
     def resolved_vault_dir(self) -> Path:
         return self.vault_dir or self.data_dir / "vault"
+
+    @property
+    def is_production(self) -> bool:
+        return self.env.lower() == "production"
 
 
 @lru_cache

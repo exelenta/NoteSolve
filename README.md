@@ -124,3 +124,43 @@ shutdown are moved to an explicit failed state so the UI can offer a retry inste
 forever.
 
 Versioned quality cases live under `evals/worksheet/` and run with the backend test suite.
+
+## Container deployment
+
+Day 9 adds separate production images for the FastAPI service and the React/Nginx web service.
+SQLite, uploads, and Vault notes are kept outside the containers so image upgrades do not remove
+user data.
+
+1. Install Docker Desktop and make sure `docker compose version` succeeds.
+2. Copy `.env.production.example` to `.env.production` and set the OpenAI key and host Vault path.
+3. Create the directory configured by `NOTESOLVE_HOST_VAULT_DIR`.
+4. Start the stack:
+
+```bash
+docker compose --env-file .env.production up --build -d
+docker compose ps
+docker compose logs -f api
+```
+
+Open `http://127.0.0.1:8080`. The web container proxies `/api` to the private API container, the
+API runs pending Alembic migrations at startup, and its health check gates web startup. The named
+`notesolve-data` volume persists SQLite and uploaded objects; `NOTESOLVE_HOST_VAULT_DIR` is mounted
+at `/vault`.
+
+The API process runs as the non-root UID/GID `10001`. On a Linux host, make the Vault directory
+writable by that identity before startup (for example, `sudo chown -R 10001:10001 <vault-path>`).
+Docker Desktop bind mounts on Windows and macOS normally translate host permissions automatically.
+
+The default port binding is intentionally loopback-only. Do not change
+`NOTESOLVE_BIND_ADDRESS` to `0.0.0.0` for direct internet exposure. Put an authenticated HTTPS
+reverse proxy, VPN, or equivalent access layer in front first, and set `NOTESOLVE_ALLOWED_HOSTS`
+and `NOTESOLVE_CORS_ORIGINS` to the exact public host. Production mode disables the FastAPI docs
+and adds trusted-host and defensive response-header middleware.
+
+To stop without deleting data:
+
+```bash
+docker compose --env-file .env.production down
+```
+
+Do not add `-v` unless you intentionally want to delete the `notesolve-data` volume.

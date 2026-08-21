@@ -1,0 +1,14 @@
+.git
+.github
+.venv
+node_modules
+**/node_modules
+**/dist
+.notesolve-data
+.notesolve-vault
+.env*
+.pytest_cache
+.mypy_cache
+.ruff_cache
+*.pyc
+__pycache__

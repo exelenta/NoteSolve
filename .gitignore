@@ -1,4 +1,7 @@
 .env
+.env.*
+!.env.example
+!.env.production.example
 .venv/
 __pycache__/
 .pytest_cache/
@@ -12,6 +15,7 @@ node_modules/
 dist/
 coverage/
 .notesolve-data/
+.notesolve-vault/
 *.db
 *.sqlite3
 apps/api/.coverage

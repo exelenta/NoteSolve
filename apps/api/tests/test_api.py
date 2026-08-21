@@ -7,6 +7,14 @@ def test_health(client: TestClient) -> None:
     response = client.get("/api/v1/health")
     assert response.status_code == 200
     assert response.json()["service"] == "notesolve-api"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["referrer-policy"] == "no-referrer"
+
+
+def test_rejects_untrusted_host(client: TestClient) -> None:
+    response = client.get("/api/v1/health", headers={"Host": "attacker.example"})
+    assert response.status_code == 400
 
 
 def test_local_ip_web_origin_is_allowed(client: TestClient) -> None:

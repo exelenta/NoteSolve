@@ -3,7 +3,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
+from notesolve.api.middleware import SecurityHeadersMiddleware
 from notesolve.api.routes import router
 from notesolve.application.recovery import mark_interrupted_jobs_failed
 from notesolve.config import get_settings
@@ -19,7 +21,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title="NoteSolve API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(
+    title="NoteSolve API",
+    version="0.1.0",
+    lifespan=lifespan,
+    docs_url=None if settings.is_production else "/docs",
+    redoc_url=None if settings.is_production else "/redoc",
+    openapi_url=None if settings.is_production else "/openapi.json",
+)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
