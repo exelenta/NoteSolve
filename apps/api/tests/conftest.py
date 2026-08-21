@@ -53,7 +53,12 @@ def client(tmp_path: Path) -> TestClient:
     app.dependency_overrides[get_settings] = lambda: settings
     app.dependency_overrides[get_analysis_task] = lambda: analysis_task_override
     app.dependency_overrides[get_agent_edit_task] = lambda: agent_edit_task_override
-    with TestClient(app) as test_client:
-        test_client.notesolve_vault_dir = settings.resolved_vault_dir  # type: ignore[attr-defined]
-        yield test_client
-    app.dependency_overrides.clear()
+    previous_session_factory = app.state.session_factory
+    app.state.session_factory = session_factory
+    try:
+        with TestClient(app) as test_client:
+            test_client.notesolve_vault_dir = settings.resolved_vault_dir  # type: ignore[attr-defined]
+            yield test_client
+    finally:
+        app.state.session_factory = previous_session_factory
+        app.dependency_overrides.clear()

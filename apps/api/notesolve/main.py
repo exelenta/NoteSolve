@@ -16,7 +16,8 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    with SessionLocal() as session:
+    session_factory = app.state.session_factory
+    with session_factory() as session:
         mark_interrupted_jobs_failed(session)
     yield
 
@@ -29,6 +30,7 @@ app = FastAPI(
     redoc_url=None if settings.is_production else "/redoc",
     openapi_url=None if settings.is_production else "/openapi.json",
 )
+app.state.session_factory = SessionLocal
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 app.add_middleware(
