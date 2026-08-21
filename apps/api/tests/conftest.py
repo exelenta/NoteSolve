@@ -8,7 +8,7 @@ from notesolve.config import Settings, get_settings
 from notesolve.infrastructure.db import Base, get_session
 from notesolve.infrastructure.local_storage import LocalStorageProvider
 from notesolve.main import app
-from notesolve.providers.fake_analyzer import FakeWorksheetAnalyzer
+from notesolve.providers.fake_analyzer import FakeWorksheetAnalyzer, FakeWorksheetVerifier
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -33,6 +33,7 @@ def client(tmp_path: Path) -> TestClient:
                 session=session,
                 storage=LocalStorageProvider(settings.data_dir / "objects"),
                 analyzer=FakeWorksheetAnalyzer(),
+                verifier=FakeWorksheetVerifier(),
             )
             await service.run(job_id)
 

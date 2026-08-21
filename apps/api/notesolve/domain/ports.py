@@ -5,8 +5,10 @@ from uuid import UUID
 from notesolve.domain.models import (
     AnalyzeOptions,
     InputFile,
+    ProblemResult,
     VaultChangeSet,
     VaultOperation,
+    VerificationResult,
     WorksheetResult,
 )
 
@@ -15,6 +17,15 @@ class WorksheetAnalyzer(Protocol):
     async def analyze(
         self, files: Sequence[InputFile], options: AnalyzeOptions
     ) -> WorksheetResult: ...
+
+
+class WorksheetVerifier(Protocol):
+    async def verify(
+        self,
+        files: Sequence[InputFile],
+        problem: ProblemResult,
+        options: AnalyzeOptions,
+    ) -> VerificationResult: ...
 
 
 class StorageProvider(Protocol):

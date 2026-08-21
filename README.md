@@ -15,6 +15,7 @@ The current foundation provides:
 - Fake/OpenAI worksheet analyzers with strict structured output
 - background analysis jobs and persisted `WorksheetResult` retrieval
 - backend and frontend tests
+- threshold-based independent verification for low-confidence or self-checked problems
 
 ## Prerequisites
 
@@ -67,6 +68,10 @@ Development defaults to the deterministic fake analyzer. To call OpenAI, set:
 NOTESOLVE_AI_PROVIDER=openai
 NOTESOLVE_OPENAI_API_KEY=your-key
 NOTESOLVE_OPENAI_MODEL=gpt-5.4
+# Optional: use a separate model and tune the verification trigger.
+NOTESOLVE_OPENAI_VERIFICATION_MODEL=gpt-5.4
+NOTESOLVE_VERIFICATION_THRESHOLD=0.9
+NOTESOLVE_VERIFICATION_ENABLED=true
 ```
 
 Upload a file, start analysis with `POST /api/v1/jobs/{job_id}/analyze`, and retrieve the

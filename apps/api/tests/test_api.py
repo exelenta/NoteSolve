@@ -62,6 +62,10 @@ def test_analyzes_uploaded_document_with_fake_provider(client: TestClient) -> No
     assert result.status_code == 200
     assert result.json()["provider"] == "fake"
     assert result.json()["result"]["problems"][0]["answer_markdown"] == "$x = 1$"
+    assert result.json()["result"]["problems"][0]["verification"]["status"] == "verified"
+    assert result.json()["result"]["problems"][0]["verification"]["method"] == (
+        "independent_fake_check"
+    )
 
 
 def test_result_returns_conflict_before_analysis(client: TestClient) -> None:

@@ -1,7 +1,8 @@
 from notesolve.config import Settings
-from notesolve.domain.ports import WorksheetAnalyzer
-from notesolve.providers.fake_analyzer import FakeWorksheetAnalyzer
+from notesolve.domain.ports import WorksheetAnalyzer, WorksheetVerifier
+from notesolve.providers.fake_analyzer import FakeWorksheetAnalyzer, FakeWorksheetVerifier
 from notesolve.providers.openai_analyzer import OpenAIWorksheetAnalyzer
+from notesolve.providers.openai_verifier import OpenAIWorksheetVerifier
 
 
 def create_worksheet_analyzer(settings: Settings) -> WorksheetAnalyzer:
@@ -13,6 +14,22 @@ def create_worksheet_analyzer(settings: Settings) -> WorksheetAnalyzer:
         return OpenAIWorksheetAnalyzer(
             api_key=settings.openai_api_key,
             model=settings.openai_model,
+            base_url=settings.openai_base_url,
+        )
+    raise ValueError(f"Unsupported AI provider: {settings.ai_provider}")
+
+
+def create_worksheet_verifier(settings: Settings) -> WorksheetVerifier | None:
+    if not settings.verification_enabled:
+        return None
+    if settings.ai_provider == "fake":
+        return FakeWorksheetVerifier()
+    if settings.ai_provider == "openai":
+        if not settings.openai_api_key:
+            raise ValueError("NOTESOLVE_OPENAI_API_KEY is required for the OpenAI provider")
+        return OpenAIWorksheetVerifier(
+            api_key=settings.openai_api_key,
+            model=settings.openai_verification_model or settings.openai_model,
             base_url=settings.openai_base_url,
         )
     raise ValueError(f"Unsupported AI provider: {settings.ai_provider}")

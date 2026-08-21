@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     openai_model: str = "gpt-5.4"
     openai_base_url: str = "https://api.openai.com/v1"
+    verification_enabled: bool = True
+    verification_threshold: float = Field(default=0.9, ge=0, le=1)
+    openai_verification_model: str | None = None
 
     @field_validator("cors_origins", mode="before")
     @classmethod

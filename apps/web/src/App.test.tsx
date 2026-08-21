@@ -74,7 +74,7 @@ describe("App", () => {
     expect(await screen.findByText("분석 완료")).toBeInTheDocument();
     expect((await screen.findAllByText(/이차방정식/)).length).toBeGreaterThan(0);
     expect(screen.getByText("$x=2, -2$")).toBeInTheDocument();
-    expect(screen.getByText("검산 완료")).toBeInTheDocument();
+    expect(screen.getByText("독립 검산 완료")).toBeInTheDocument();
   });
 
   it("rejects an unsupported file", async () => {

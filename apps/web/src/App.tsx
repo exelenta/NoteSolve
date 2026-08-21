@@ -22,6 +22,13 @@ const STAGE_LABELS = {
   completed: "분석 완료",
   failed: "분석 실패",
 };
+const VERIFICATION_LABELS = {
+  self_checked: "AI 자체 검산",
+  verified: "독립 검산 완료",
+  conflict: "검산 불일치",
+  manual_review_required: "수동 검토 필요",
+  unsupported: "검산 미지원",
+};
 
 function ProblemCard({ problem }: { problem: ProblemResult }) {
   const needsAttention = problem.needs_review || problem.confidence < 0.9;
@@ -54,11 +61,14 @@ function ProblemCard({ problem }: { problem: ProblemResult }) {
       </section>
       <footer className="verification">
         <span className={`verification-badge ${problem.verification.status}`}>
-          {problem.verification.status === "conflict" ? "검산 불일치" : "검산 완료"}
+          {VERIFICATION_LABELS[problem.verification.status]}
         </span>
         <span>{problem.verification.method ?? "AI 자체 검산"}</span>
         <span>신뢰도 {Math.round(problem.verification.confidence * 100)}%</span>
       </footer>
+      {problem.verification.details_markdown && (
+        <div className="verification-details">{problem.verification.details_markdown}</div>
+      )}
       {problem.concepts.length > 0 && (
         <div className="concepts">{problem.concepts.map((concept) => <span key={concept}>#{concept}</span>)}</div>
       )}

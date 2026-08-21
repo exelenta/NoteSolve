@@ -70,6 +70,8 @@ h2 { font-size: 26px; letter-spacing: -.025em; margin: 0; }
 .verification { align-items: center; color: #64748b; display: flex; flex-wrap: wrap; font-size: 12px; gap: 10px; margin-top: 20px; }
 .verification-badge { background: #dcfce7; border-radius: 999px; color: #166534; font-weight: 800; padding: 5px 8px; }
 .verification-badge.conflict, .verification-badge.manual_review_required { background: #fee2e2; color: #991b1b; }
+.verification-badge.unsupported { background: #f1f5f9; color: #475569; }
+.verification-details { background: #f8fafc; border-left: 3px solid #94a3b8; color: #475569; font-size: 13px; line-height: 1.65; margin-top: 12px; padding: 10px 12px; white-space: pre-wrap; }
 .concepts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .concepts span { color: #2563eb; font-size: 12px; }
 

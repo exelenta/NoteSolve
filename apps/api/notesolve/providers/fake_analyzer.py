@@ -30,9 +30,28 @@ class FakeWorksheetAnalyzer:
                     verification=VerificationResult(
                         status=VerificationStatus.SELF_CHECKED,
                         method="substitution",
-                        confidence=0.99,
+                        confidence=0.85,
                     ),
-                    confidence=0.99,
+                    confidence=0.85,
                 )
             ],
+        )
+
+
+class FakeWorksheetVerifier:
+    provider_name = "fake"
+    model_name = "fake-verifier-v1"
+    prompt_version = "verification-v1"
+
+    async def verify(
+        self,
+        files: Sequence[InputFile],
+        problem: ProblemResult,
+        options: AnalyzeOptions,
+    ) -> VerificationResult:
+        return VerificationResult(
+            status=VerificationStatus.VERIFIED,
+            method="independent_fake_check",
+            details_markdown="독립 검산 결과 원래 풀이와 정답이 일치합니다.",
+            confidence=0.99,
         )
