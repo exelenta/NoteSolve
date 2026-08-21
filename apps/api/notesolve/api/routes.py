@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from notesolve.api.schemas import (
     AgentEditJobResponse,
     AgentEditRequest,
+    AIUsageResponse,
     AnalyzeJobResponse,
     CreateDocumentResponse,
     HealthResponse,
@@ -214,6 +215,11 @@ def get_document_result(
         model=row.model,
         prompt_version=row.prompt_version,
         result=WorksheetResult.model_validate(row.result_json),
+        usage=AIUsageResponse(
+            input_tokens=row.input_tokens,
+            output_tokens=row.output_tokens,
+            total_tokens=row.total_tokens,
+        ),
     )
 
 
@@ -364,6 +370,11 @@ def create_agent_edit_proposal(
         status=AgentEditJobStatus(job.status),
         result_change_set_id=job.result_change_set_id,
         error_message=job.error_message,
+        usage=AIUsageResponse(
+            input_tokens=job.input_tokens,
+            output_tokens=job.output_tokens,
+            total_tokens=job.total_tokens,
+        ),
     )
 
 
@@ -380,4 +391,9 @@ def get_agent_edit_job(
         status=AgentEditJobStatus(job.status),
         result_change_set_id=job.result_change_set_id,
         error_message=job.error_message,
+        usage=AIUsageResponse(
+            input_tokens=job.input_tokens,
+            output_tokens=job.output_tokens,
+            total_tokens=job.total_tokens,
+        ),
     )

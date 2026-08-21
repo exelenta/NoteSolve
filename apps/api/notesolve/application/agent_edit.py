@@ -11,6 +11,7 @@ from notesolve.domain.models import (
 )
 from notesolve.domain.ports import VaultNoteEditor, VaultRepository
 from notesolve.infrastructure.tables import AgentEditJobRow, VaultChangeSetRow
+from notesolve.providers.openai_responses import usage_of
 
 
 class AgentEditService:
@@ -64,6 +65,7 @@ class AgentEditService:
                 current_content=current_content,
                 instruction=job.instruction,
             )
+            usage = usage_of(self._editor)
             if proposal.content == current_content:
                 raise RuntimeError("AI edit did not change the note")
             change_set = VaultChangeSetRow(
@@ -84,6 +86,9 @@ class AgentEditService:
             job.result_change_set_id = change_set.id
             job.status = AgentEditJobStatus.COMPLETED
             job.error_message = None
+            job.input_tokens = usage.input_tokens
+            job.output_tokens = usage.output_tokens
+            job.total_tokens = usage.total_tokens
             self._session.commit()
         except Exception as exc:
             self._session.rollback()

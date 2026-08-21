@@ -284,6 +284,7 @@ export function App() {
                 <dl>
                   <div><dt>문서 신뢰도</dt><dd>{Math.round(result.data.result.document.confidence * 100)}%</dd></div>
                   <div><dt>분석 모델</dt><dd>{result.data.model}</dd></div>
+                  <div><dt>사용 토큰</dt><dd>{result.data.usage.total_tokens.toLocaleString()}</dd></div>
                 </dl>
                 <button
                   className="secondary-button"
@@ -359,6 +360,11 @@ export function App() {
                   )}
                   {agentJob.data?.status === "failed" && (
                     <p className="message error">{agentJob.data.error_message ?? "AI 수정에 실패했습니다."}</p>
+                  )}
+                  {agentJob.data?.status === "completed" && (
+                    <p className="agent-status">
+                      수정안 생성 완료 · {agentJob.data.usage.total_tokens.toLocaleString()} tokens
+                    </p>
                   )}
                 </div>
               )}

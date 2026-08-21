@@ -80,6 +80,7 @@ def test_analyzes_uploaded_document_with_fake_provider(client: TestClient) -> No
     assert result.json()["result"]["problems"][0]["verification"]["method"] == (
         "independent_fake_check"
     )
+    assert result.json()["usage"]["total_tokens"] == 0
 
 
 def test_result_returns_conflict_before_analysis(client: TestClient) -> None:
@@ -205,6 +206,7 @@ def test_agent_edit_job_proposes_approval_required_update(client: TestClient) ->
     assert requested.status_code == 202
     job = client.get(f"/api/v1/agent-edit-jobs/{requested.json()['job_id']}").json()
     assert job["status"] == "completed"
+    assert job["usage"]["total_tokens"] == 0
     assert vault_file.read_text(encoding="utf-8") == original
 
     proposal = client.get(

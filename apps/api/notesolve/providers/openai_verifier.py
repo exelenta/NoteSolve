@@ -8,6 +8,7 @@ import httpx
 
 from notesolve.domain.models import AnalyzeOptions, InputFile, ProblemResult, VerificationResult
 from notesolve.providers.openai_analyzer import _strict_schema
+from notesolve.providers.openai_responses import OpenAIResponsesClient, ResponseUsage
 
 
 class OpenAIWorksheetVerifier:
@@ -21,15 +22,23 @@ class OpenAIWorksheetVerifier:
         model: str,
         base_url: str = "https://api.openai.com/v1",
         timeout_seconds: float = 180,
+        max_retries: int = 2,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         if not api_key:
             raise ValueError("OpenAI API key is required")
         self.model_name = model
-        self._api_key = api_key
-        self._base_url = base_url.rstrip("/")
-        self._timeout = timeout_seconds
-        self._transport = transport
+        self._client = OpenAIResponsesClient(
+            api_key=api_key,
+            base_url=base_url,
+            timeout_seconds=timeout_seconds,
+            max_retries=max_retries,
+            transport=transport,
+        )
+
+    @property
+    def last_usage(self) -> ResponseUsage:
+        return self._client.last_usage
 
     async def verify(
         self,
@@ -58,18 +67,8 @@ class OpenAIWorksheetVerifier:
                 }
             },
         }
-        async with httpx.AsyncClient(
-            base_url=self._base_url,
-            timeout=self._timeout,
-            transport=self._transport,
-        ) as client:
-            response = await client.post(
-                "/responses",
-                headers={"Authorization": f"Bearer {self._api_key}"},
-                json=payload,
-            )
-            response.raise_for_status()
-        output = self._extract_output_text(response.json())
+        response = await self._client.create(payload)
+        output = self._extract_output_text(response)
         return VerificationResult.model_validate_json(output)
 
     @staticmethod

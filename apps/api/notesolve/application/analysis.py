@@ -13,6 +13,7 @@ from notesolve.domain.models import (
 )
 from notesolve.domain.ports import StorageProvider, WorksheetAnalyzer, WorksheetVerifier
 from notesolve.infrastructure.tables import DocumentRow, PipelineJobRow, WorksheetResultRow
+from notesolve.providers.openai_responses import ResponseUsage, usage_of
 
 
 class AnalysisService:
@@ -30,6 +31,7 @@ class AnalysisService:
         self._analyzer = analyzer
         self._verifier = verifier
         self._verification_threshold = verification_threshold
+        self._usage = ResponseUsage()
 
     async def run(self, job_id: UUID, options: AnalyzeOptions | None = None) -> None:
         job = self._session.get(PipelineJobRow, job_id)
@@ -63,6 +65,7 @@ class AnalysisService:
             ]
             analysis_options = options or AnalyzeOptions()
             result = await self._analyzer.analyze(input_files, analysis_options)
+            self._usage = usage_of(self._analyzer)
             job.stage = PipelineStage.VALIDATING
             job.progress = 70
             self._session.commit()
@@ -82,6 +85,9 @@ class AnalysisService:
                     model=getattr(self._analyzer, "model_name", "unknown"),
                     prompt_version=getattr(self._analyzer, "prompt_version", "unknown"),
                     result_json=result.model_dump(mode="json"),
+                    input_tokens=self._usage.input_tokens,
+                    output_tokens=self._usage.output_tokens,
+                    total_tokens=self._usage.total_tokens,
                 )
             )
             job.stage = PipelineStage.COMPLETED
@@ -132,6 +138,7 @@ class AnalysisService:
         for problem in candidates:
             try:
                 verification = await self._verifier.verify(files, problem, options)
+                self._usage += usage_of(self._verifier)
             except Exception as exc:
                 problem.verification.status = VerificationStatus.MANUAL_REVIEW_REQUIRED
                 problem.verification.method = "independent_verification_failed"

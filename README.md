@@ -20,6 +20,9 @@ The current foundation provides:
 - approval-required Obsidian ChangeSet previews with subject/unit folder classification
 - persisted Vault ChangeSets with explicit apply, conflict detection, revision history, and rollback
 - asynchronous AI note-edit jobs that produce approval-required update ChangeSets
+- retry-aware OpenAI Responses client with persisted token usage
+- startup recovery for interrupted analysis and agent jobs
+- versioned worksheet evaluation fixtures
 
 ## Prerequisites
 
@@ -74,6 +77,8 @@ NOTESOLVE_OPENAI_API_KEY=your-key
 NOTESOLVE_OPENAI_MODEL=gpt-5.4
 # Optional: use a separate model and tune the verification trigger.
 NOTESOLVE_OPENAI_VERIFICATION_MODEL=gpt-5.4
+NOTESOLVE_OPENAI_NOTE_EDITOR_MODEL=gpt-5.4
+NOTESOLVE_OPENAI_MAX_RETRIES=2
 NOTESOLVE_VERIFICATION_THRESHOLD=0.9
 NOTESOLVE_VERIFICATION_ENABLED=true
 ```
@@ -109,3 +114,13 @@ GET  /api/v1/agent-edit-jobs/{job_id}
 The agent receives the current Markdown and returns a complete revised note through a strict
 structured-output schema. It cannot choose or change the Vault path. The resulting update is
 stored as another pending ChangeSet and still requires explicit approval before any file write.
+
+## Reliability and usage
+
+OpenAI calls retry transient HTTP 408, 409, 429, and 5xx responses with capped exponential
+backoff. Responses API input, output, and total token counts are persisted for worksheet analysis
+and note-edit jobs and returned by their APIs. On startup, jobs interrupted by a previous process
+shutdown are moved to an explicit failed state so the UI can offer a retry instead of polling
+forever.
+
+Versioned quality cases live under `evals/worksheet/` and run with the backend test suite.

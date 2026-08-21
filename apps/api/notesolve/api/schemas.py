@@ -38,6 +38,12 @@ class AnalyzeJobResponse(BaseModel):
     status: str
 
 
+class AIUsageResponse(BaseModel):
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+
+
 class WorksheetResultResponse(BaseModel):
     document_id: UUID
     job_id: UUID
@@ -45,6 +51,7 @@ class WorksheetResultResponse(BaseModel):
     model: str
     prompt_version: str
     result: WorksheetResult
+    usage: AIUsageResponse
 
 
 class VaultPreviewResponse(BaseModel):
@@ -68,3 +75,4 @@ class AgentEditJobResponse(BaseModel):
     status: AgentEditJobStatus
     result_change_set_id: UUID | None
     error_message: str | None
+    usage: AIUsageResponse

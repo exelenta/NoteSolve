@@ -74,6 +74,11 @@ export interface WorksheetResultResponse {
     };
     problems: ProblemResult[];
   };
+  usage: {
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+  };
 }
 
 export interface VaultPreviewResponse {
@@ -103,6 +108,11 @@ export interface AgentEditJobResponse {
   status: "queued" | "running" | "completed" | "failed";
   result_change_set_id: string | null;
   error_message: string | null;
+  usage: {
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+  };
 }
 
 export async function getHealth(): Promise<HealthResponse> {

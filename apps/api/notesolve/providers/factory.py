@@ -17,6 +17,7 @@ def create_worksheet_analyzer(settings: Settings) -> WorksheetAnalyzer:
             api_key=settings.openai_api_key,
             model=settings.openai_model,
             base_url=settings.openai_base_url,
+            max_retries=settings.openai_max_retries,
         )
     raise ValueError(f"Unsupported AI provider: {settings.ai_provider}")
 
@@ -33,6 +34,7 @@ def create_worksheet_verifier(settings: Settings) -> WorksheetVerifier | None:
             api_key=settings.openai_api_key,
             model=settings.openai_verification_model or settings.openai_model,
             base_url=settings.openai_base_url,
+            max_retries=settings.openai_max_retries,
         )
     raise ValueError(f"Unsupported AI provider: {settings.ai_provider}")
 
@@ -47,5 +49,6 @@ def create_vault_note_editor(settings: Settings) -> VaultNoteEditor:
             api_key=settings.openai_api_key,
             model=settings.openai_note_editor_model or settings.openai_model,
             base_url=settings.openai_base_url,
+            max_retries=settings.openai_max_retries,
         )
     raise ValueError(f"Unsupported AI provider: {settings.ai_provider}")

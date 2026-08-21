@@ -51,6 +51,9 @@ class WorksheetResultRow(Base):
     model: Mapped[str] = mapped_column(String(100))
     prompt_version: Mapped[str] = mapped_column(String(100))
     result_json: Mapped[dict[str, object]] = mapped_column(JSON)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    total_tokens: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -96,6 +99,9 @@ class AgentEditJobRow(Base):
     status: Mapped[str] = mapped_column(String(50))
     instruction: Mapped[str] = mapped_column(Text)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    total_tokens: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow

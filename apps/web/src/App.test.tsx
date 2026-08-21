@@ -10,6 +10,7 @@ const resultPayload = {
   provider: "fake",
   model: "notesolve-test",
   prompt_version: "v1",
+  usage: { input_tokens: 120, output_tokens: 30, total_tokens: 150 },
   result: {
     schema_version: 1,
     document: { subject: "수학", unit: "이차방정식", confidence: 0.96, warnings: [] },
@@ -60,6 +61,7 @@ describe("App", () => {
           document_id: "doc-1",
           status: "pending",
           error_message: null,
+          usage: { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
           change_set: {
             id: "changeset-1",
             base_revision: null,
@@ -78,6 +80,7 @@ describe("App", () => {
           document_id: "doc-1",
           status: "applied",
           error_message: null,
+          usage: { input_tokens: 40, output_tokens: 20, total_tokens: 60 },
           change_set: {
             id: "changeset-1",
             base_revision: null,
@@ -115,6 +118,7 @@ describe("App", () => {
           status: "queued",
           result_change_set_id: null,
           error_message: null,
+          usage: { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
         }), { status: 202 });
       }
       if (url.endsWith("/agent-edit-jobs/agent-job-1")) {
@@ -123,6 +127,7 @@ describe("App", () => {
           status: "completed",
           result_change_set_id: "edit-1",
           error_message: null,
+          usage: { input_tokens: 40, output_tokens: 20, total_tokens: 60 },
         }), { status: 200 });
       }
       if (url.endsWith("/vault-change-sets/edit-1/apply")) {

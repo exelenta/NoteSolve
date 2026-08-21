@@ -1,0 +1,10 @@
+{
+  "case_id": "fake-linear-equation-v1",
+  "subject_hint": "math",
+  "expected": {
+    "subject": "math",
+    "problem_count": 1,
+    "answer_contains": "$x = 1$",
+    "minimum_confidence": 0.8
+  }
+}

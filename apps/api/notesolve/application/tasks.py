@@ -23,16 +23,13 @@ AgentEditTask = Callable[[UUID], Awaitable[None]]
 def get_analysis_task(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AnalysisTask:
-    analyzer = create_worksheet_analyzer(settings)
-    verifier = create_worksheet_verifier(settings)
-
     async def run_analysis_job(job_id: UUID) -> None:
         with SessionLocal() as session:
             service = AnalysisService(
                 session=session,
                 storage=LocalStorageProvider(settings.data_dir / "objects"),
-                analyzer=analyzer,
-                verifier=verifier,
+                analyzer=create_worksheet_analyzer(settings),
+                verifier=create_worksheet_verifier(settings),
                 verification_threshold=settings.verification_threshold,
             )
             await service.run(job_id)
@@ -43,14 +40,12 @@ def get_analysis_task(
 def get_agent_edit_task(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AgentEditTask:
-    editor = create_vault_note_editor(settings)
-
     async def run_agent_edit_job(job_id: UUID) -> None:
         with SessionLocal() as session:
             service = AgentEditService(
                 session=session,
                 vault=LocalVaultRepository(settings.resolved_vault_dir),
-                editor=editor,
+                editor=create_vault_note_editor(settings),
             )
             await service.run(job_id)
 
