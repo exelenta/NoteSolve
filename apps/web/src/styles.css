@@ -65,7 +65,10 @@ h2 { font-size: 26px; letter-spacing: -.025em; margin: 0; }
 .warning-box { background: #fff7ed; border-radius: 9px; color: #9a3412; font-size: 13px; margin-top: 16px; padding: 11px 13px; }
 .result-section { margin-top: 22px; }
 .result-section h3 { color: #475569; font-size: 12px; letter-spacing: .08em; margin: 0 0 9px; text-transform: uppercase; }
-.markdown-text { line-height: 1.75; white-space: pre-wrap; }
+.markdown-content { line-height: 1.75; overflow-x: auto; }
+.markdown-content > :first-child { margin-top: 0; }
+.markdown-content > :last-child { margin-bottom: 0; }
+.markdown-content p { white-space: pre-wrap; }
 .answer-section { background: #f8fafc; border-radius: 10px; padding: 15px; }
 .verification { align-items: center; color: #64748b; display: flex; flex-wrap: wrap; font-size: 12px; gap: 10px; margin-top: 20px; }
 .verification-badge { background: #dcfce7; border-radius: 999px; color: #166534; font-weight: 800; padding: 5px 8px; }
@@ -74,6 +77,11 @@ h2 { font-size: 26px; letter-spacing: -.025em; margin: 0; }
 .verification-details { background: #f8fafc; border-left: 3px solid #94a3b8; color: #475569; font-size: 13px; line-height: 1.65; margin-top: 12px; padding: 10px 12px; white-space: pre-wrap; }
 .concepts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .concepts span { color: #2563eb; font-size: 12px; }
+.secondary-button { background: #eff6ff; color: #1d4ed8; }
+.vault-preview { margin-top: 18px; }
+.approval-badge { background: #fff7ed; border-radius: 999px; color: #9a3412; font-size: 12px; font-weight: 800; padding: 7px 10px; }
+.vault-path { background: #eff6ff; border-radius: 9px; color: #1d4ed8; font-family: ui-monospace, monospace; font-size: 13px; margin: 18px 0 12px; overflow-wrap: anywhere; padding: 11px 13px; }
+.vault-preview pre { background: #0f172a; border-radius: 12px; color: #e2e8f0; font: 13px/1.65 ui-monospace, monospace; margin: 0; max-height: 520px; overflow: auto; padding: 18px; white-space: pre-wrap; }
 
 @media (max-width: 640px) {
   .shell { width: min(100% - 24px, 920px); padding: 36px 0; }
@@ -82,4 +90,5 @@ h2 { font-size: 26px; letter-spacing: -.025em; margin: 0; }
   .selection { grid-template-columns: 1fr; }
   .upload-result, .failure-box, .results-summary { align-items: stretch; flex-direction: column; }
   .results-summary dl { justify-content: space-between; }
+  .results-summary .secondary-button { width: 100%; }
 }

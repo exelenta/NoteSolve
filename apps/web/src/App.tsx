@@ -1,14 +1,19 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { ChangeEvent, DragEvent } from "react";
+import ReactMarkdown from "react-markdown";
+import rehypeKatex from "rehype-katex";
+import remarkMath from "remark-math";
 import {
   analyzeJob,
   getDocumentResult,
   getHealth,
   getJob,
+  getVaultPreview,
   uploadDocument,
 } from "./api";
 import type { ProblemResult } from "./api";
+import "katex/dist/katex.min.css";
 import "./styles.css";
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "application/pdf"];
@@ -30,6 +35,16 @@ const VERIFICATION_LABELS = {
   unsupported: "검산 미지원",
 };
 
+function MarkdownContent({ children }: { children: string }) {
+  return (
+    <div className="markdown-content">
+      <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+        {children}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
 function ProblemCard({ problem }: { problem: ProblemResult }) {
   const needsAttention = problem.needs_review || problem.confidence < 0.9;
   return (
@@ -49,15 +64,15 @@ function ProblemCard({ problem }: { problem: ProblemResult }) {
       )}
       <section className="result-section">
         <h3>문제</h3>
-        <div className="markdown-text">{problem.question_markdown}</div>
+        <MarkdownContent>{problem.question_markdown}</MarkdownContent>
       </section>
       <section className="result-section">
         <h3>풀이</h3>
-        <div className="markdown-text">{problem.solution_markdown}</div>
+        <MarkdownContent>{problem.solution_markdown}</MarkdownContent>
       </section>
       <section className="result-section answer-section">
         <h3>정답</h3>
-        <div className="markdown-text">{problem.answer_markdown}</div>
+        <MarkdownContent>{problem.answer_markdown}</MarkdownContent>
       </section>
       <footer className="verification">
         <span className={`verification-badge ${problem.verification.status}`}>
@@ -67,7 +82,9 @@ function ProblemCard({ problem }: { problem: ProblemResult }) {
         <span>신뢰도 {Math.round(problem.verification.confidence * 100)}%</span>
       </footer>
       {problem.verification.details_markdown && (
-        <div className="verification-details">{problem.verification.details_markdown}</div>
+        <div className="verification-details">
+          <MarkdownContent>{problem.verification.details_markdown}</MarkdownContent>
+        </div>
       )}
       {problem.concepts.length > 0 && (
         <div className="concepts">{problem.concepts.map((concept) => <span key={concept}>#{concept}</span>)}</div>
@@ -90,6 +107,7 @@ export function App() {
     mutationFn: analyzeJob,
     onSuccess: () => setAnalysisStarted(true),
   });
+  const vaultPreview = useMutation({ mutationFn: getVaultPreview });
   const job = useQuery({
     queryKey: ["job", upload.data?.job_id],
     queryFn: () => getJob(upload.data!.job_id),
@@ -118,6 +136,7 @@ export function App() {
   function selectFile(candidate: File | undefined) {
     upload.reset();
     analysis.reset();
+    vaultPreview.reset();
     setAnalysisStarted(false);
     if (!candidate) return;
     if (!ACCEPTED_TYPES.includes(candidate.type)) {
@@ -233,7 +252,28 @@ export function App() {
                   <div><dt>문서 신뢰도</dt><dd>{Math.round(result.data.result.document.confidence * 100)}%</dd></div>
                   <div><dt>분석 모델</dt><dd>{result.data.model}</dd></div>
                 </dl>
+                <button
+                  className="secondary-button"
+                  disabled={vaultPreview.isPending}
+                  onClick={() => vaultPreview.mutate(result.data.document_id)}
+                >
+                  {vaultPreview.isPending ? "노트 생성 중…" : "Obsidian 노트 미리보기"}
+                </button>
               </div>
+              {vaultPreview.isError && <p className="panel message error">{vaultPreview.error.message}</p>}
+              {vaultPreview.data && (
+                <div className="panel vault-preview">
+                  <div className="section-heading">
+                    <div>
+                      <p className="section-kicker">VAULT CHANGESET · 승인 전</p>
+                      <h2>생성될 Obsidian 노트</h2>
+                    </div>
+                    <span className="approval-badge">승인 필요</span>
+                  </div>
+                  <p className="vault-path">{vaultPreview.data.change_set.operations[0]?.path}</p>
+                  <pre>{vaultPreview.data.change_set.operations[0]?.content}</pre>
+                </div>
+              )}
               {result.data.result.document.warnings.length > 0 && (
                 <div className="document-warnings">문서 검토 필요: {result.data.result.document.warnings.join(" · ")}</div>
               )}

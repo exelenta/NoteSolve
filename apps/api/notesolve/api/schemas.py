@@ -2,7 +2,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from notesolve.domain.models import PipelineStage, WorksheetResult
+from notesolve.domain.models import PipelineStage, VaultChangeSet, WorksheetResult
 
 
 class HealthResponse(BaseModel):
@@ -39,3 +39,8 @@ class WorksheetResultResponse(BaseModel):
     model: str
     prompt_version: str
     result: WorksheetResult
+
+
+class VaultPreviewResponse(BaseModel):
+    document_id: UUID
+    change_set: VaultChangeSet

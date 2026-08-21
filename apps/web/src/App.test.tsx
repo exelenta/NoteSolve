@@ -55,6 +55,22 @@ describe("App", () => {
       if (url.endsWith("/documents/doc-1/result")) {
         return new Response(JSON.stringify(resultPayload), { status: 200 });
       }
+      if (url.endsWith("/documents/doc-1/vault-preview")) {
+        return new Response(JSON.stringify({
+          document_id: "doc-1",
+          change_set: {
+            id: "changeset-1",
+            base_revision: null,
+            requires_approval: true,
+            reason: "Obsidian 노트 생성",
+            operations: [{
+              operation: "create",
+              path: "NoteSolve/수학/이차방정식/worksheet-doc-1.md",
+              content: "# 수학 - 이차방정식\n\n## 문제 1\n\n$x^2=4$",
+            }],
+          },
+        }), { status: 200 });
+      }
       return new Response(null, { status: 404 });
     }));
     Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:preview") });
@@ -73,8 +89,11 @@ describe("App", () => {
     await userEvent.click(screen.getByRole("button", { name: "분석 시작" }));
     expect(await screen.findByText("분석 완료")).toBeInTheDocument();
     expect((await screen.findAllByText(/이차방정식/)).length).toBeGreaterThan(0);
-    expect(screen.getByText("$x=2, -2$")).toBeInTheDocument();
     expect(screen.getByText("독립 검산 완료")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Obsidian 노트 미리보기" }));
+    expect(await screen.findByText("승인 필요")).toBeInTheDocument();
+    expect(screen.getByText("NoteSolve/수학/이차방정식/worksheet-doc-1.md")).toBeInTheDocument();
   });
 
   it("rejects an unsupported file", async () => {

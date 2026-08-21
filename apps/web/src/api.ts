@@ -76,6 +76,21 @@ export interface WorksheetResultResponse {
   };
 }
 
+export interface VaultPreviewResponse {
+  document_id: string;
+  change_set: {
+    id: string;
+    base_revision: string | null;
+    requires_approval: boolean;
+    reason: string;
+    operations: Array<{
+      operation: string;
+      path: string;
+      content: string | null;
+    }>;
+  };
+}
+
 export async function getHealth(): Promise<HealthResponse> {
   const response = await fetch(`${API_BASE_URL}/health`);
   if (!response.ok) throw new Error("API에 연결할 수 없습니다.");
@@ -109,4 +124,10 @@ export async function getDocumentResult(documentId: string): Promise<WorksheetRe
   const response = await fetch(`${API_BASE_URL}/documents/${documentId}/result`);
   if (!response.ok) throw new Error("분석 결과를 불러오지 못했습니다.");
   return response.json() as Promise<WorksheetResultResponse>;
+}
+
+export async function getVaultPreview(documentId: string): Promise<VaultPreviewResponse> {
+  const response = await fetch(`${API_BASE_URL}/documents/${documentId}/vault-preview`);
+  if (!response.ok) throw new Error("Obsidian 노트 미리보기를 만들지 못했습니다.");
+  return response.json() as Promise<VaultPreviewResponse>;
 }

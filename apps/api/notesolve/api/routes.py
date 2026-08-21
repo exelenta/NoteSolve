@@ -12,8 +12,10 @@ from notesolve.api.schemas import (
     CreateDocumentResponse,
     HealthResponse,
     JobStatusResponse,
+    VaultPreviewResponse,
     WorksheetResultResponse,
 )
+from notesolve.application.markdown import build_vault_preview
 from notesolve.application.tasks import AnalysisTask, get_analysis_task
 from notesolve.config import Settings, get_settings
 from notesolve.domain.models import (
@@ -192,4 +194,31 @@ def get_document_result(
         model=row.model,
         prompt_version=row.prompt_version,
         result=WorksheetResult.model_validate(row.result_json),
+    )
+
+
+@router.get(
+    "/documents/{document_id}/vault-preview",
+    response_model=VaultPreviewResponse,
+)
+def get_vault_preview(
+    document_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+) -> VaultPreviewResponse:
+    document = session.get(DocumentRow, document_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    row = session.scalar(
+        select(WorksheetResultRow).where(WorksheetResultRow.document_id == document_id)
+    )
+    if row is None:
+        raise HTTPException(status_code=409, detail="Document analysis is not complete")
+    result = WorksheetResult.model_validate(row.result_json)
+    return VaultPreviewResponse(
+        document_id=document_id,
+        change_set=build_vault_preview(
+            document_id=document_id,
+            original_filename=document.original_filename,
+            result=result,
+        ),
     )

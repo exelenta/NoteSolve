@@ -15,7 +15,9 @@ The current foundation provides:
 - Fake/OpenAI worksheet analyzers with strict structured output
 - background analysis jobs and persisted `WorksheetResult` retrieval
 - backend and frontend tests
-- threshold-based independent verification for low-confidence or self-checked problems
+- threshold-based independent verification for low-confidence or review-required problems
+- safe Markdown and LaTeX rendering in the review UI
+- approval-required Obsidian ChangeSet previews with subject/unit folder classification
 
 ## Prerequisites
 
@@ -76,3 +78,7 @@ NOTESOLVE_VERIFICATION_ENABLED=true
 
 Upload a file, start analysis with `POST /api/v1/jobs/{job_id}/analyze`, and retrieve the
 structured result from `GET /api/v1/documents/{document_id}/result`.
+
+Generate a read-only Obsidian preview with
+`GET /api/v1/documents/{document_id}/vault-preview`. The response is a ChangeSet marked
+`requires_approval=true`; Day 5 does not write to the user's Vault.

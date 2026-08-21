@@ -75,3 +75,23 @@ def test_result_returns_conflict_before_analysis(client: TestClient) -> None:
     ).json()
     response = client.get(f"/api/v1/documents/{uploaded['document_id']}/result")
     assert response.status_code == 409
+
+
+def test_builds_approval_required_obsidian_preview(client: TestClient) -> None:
+    uploaded = client.post(
+        "/api/v1/documents",
+        files={"file": ("algebra-sheet.png", b"vault-preview-image", "image/png")},
+    ).json()
+    client.post(f"/api/v1/jobs/{uploaded['job_id']}/analyze")
+
+    response = client.get(f"/api/v1/documents/{uploaded['document_id']}/vault-preview")
+    assert response.status_code == 200
+    change_set = response.json()["change_set"]
+    assert change_set["requires_approval"] is True
+    operation = change_set["operations"][0]
+    assert operation["operation"] == "create"
+    assert operation["path"].startswith("NoteSolve/math/")
+    assert operation["path"].endswith(".md")
+    assert "# math - algebra-sheet" in operation["content"]
+    assert "## 문제 1" in operation["content"]
+    assert "$x = 1$" in operation["content"]
